@@ -1,0 +1,310 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using ProjectManagement.API.Data;
+using ProjectManagement.API.DTOs;
+using ProjectManagement.API.Models;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+
+namespace ProjectManagement.API.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class AuthController : ControllerBase
+    {
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly ApplicationDbContext _context;
+
+        public AuthController(
+            UserManager<ApplicationUser> userManager,
+            RoleManager<IdentityRole> roleManager,
+            ApplicationDbContext context)
+        {
+            _userManager = userManager;
+            _roleManager = roleManager;
+            _context = context;
+        }
+
+        // 1. Register: api/Auth/register
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] RegisterDto model)
+        {
+            // Check if phone number already exists
+            var phoneExists = await _userManager.Users.AnyAsync(u => u.PhoneNumber == model.PhoneNumber);
+            if (phoneExists)
+                return BadRequest("رقم الجوال هذا مسجل مسبقاً!");
+
+            // Check if username already exists
+            var userExists = await _userManager.FindByNameAsync(model.Username);
+            if (userExists != null)
+                return BadRequest("اسم المستخدم هذا مسجل مسبقاً!");
+
+            var user = new ApplicationUser
+            {
+                UserName = model.Username,
+                PhoneNumber = model.PhoneNumber
+            };
+
+            var result = await _userManager.CreateAsync(user, model.Password);
+
+            if (!result.Succeeded)
+            {
+                return BadRequest(result.Errors);
+            }
+
+            return Ok("تم تسجيل الحساب بنجاح!");
+        }
+
+        // 2. Login: api/Auth/login
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] LoginDto model)
+        {
+            // Find user by phone number instead of email
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == model.PhoneNumber);
+
+            if (user != null && await _userManager.CheckPasswordAsync(user, model.Password))
+            {
+                var roles = await _userManager.GetRolesAsync(user);
+                var authClaims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.NameIdentifier, user.Id),
+                    new Claim(ClaimTypes.Name, user.UserName ?? string.Empty),
+                    new Claim(ClaimTypes.MobilePhone, user.PhoneNumber ?? string.Empty),
+                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                };
+
+                foreach (var role in roles)
+                {
+                    authClaims.Add(new Claim(ClaimTypes.Role, role));
+                }
+
+                var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("FahdProjectManagementSecretKey2026_JWT_Secure!"));
+
+                var token = new JwtSecurityToken(
+                    issuer: "ProjectManagementSecretIssuer",
+                    audience: "ProjectManagementSecretAudience",
+                    expires: DateTime.Now.AddHours(3),
+                    claims: authClaims,
+                    signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
+                );
+
+                return Ok(new
+                {
+                    id = user.Id,
+                    userId = user.Id,
+                    username = user.UserName,
+                    phoneNumber = user.PhoneNumber,
+                    token = new JwtSecurityTokenHandler().WriteToken(token),
+                    expiration = token.ValidTo,
+                    user = new
+                    {
+                        id = user.Id,
+                        username = user.UserName,
+                        phoneNumber = user.PhoneNumber,
+                        nameEn = user.NameEn,
+                        nameAr = user.NameAr,
+                        titleEn = user.TitleEn,
+                        titleAr = user.TitleAr,
+                        companyEn = user.CompanyEn,
+                        companyAr = user.CompanyAr,
+                        profilePhoto = user.ProfilePhoto,
+                        backgroundPhoto = user.BackgroundPhoto,
+                        aboutAr = user.AboutAr,
+                        aboutEn = user.AboutEn,
+                        roles = roles
+                    }
+                });
+            }
+
+            return Unauthorized("رقم الجوال أو الرقم السري غير صحيح!");
+        }
+
+        // 3. Get All Users: api/Auth/all-users
+        [HttpGet("all-users")]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            var users = await _userManager.Users
+                .Select(u => new
+                {
+                    u.Id,
+                    UserName = u.UserName,
+                    PhoneNumber = u.PhoneNumber,
+                    NameAr = u.NameAr,
+                    NameEn = u.NameEn,
+                    ProfilePhoto = u.ProfilePhoto,
+                    TitleAr = u.TitleAr,
+                    TitleEn = u.TitleEn,
+                    Role = _context.UserRoles
+                        .Where(ur => ur.UserId == u.Id)
+                        .Join(_context.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => r.Name)
+                        .FirstOrDefault() ?? "Member"
+                })
+                .ToListAsync();
+
+            return Ok(users);
+        }
+
+        // 4. Change Password: api/Auth/change-password
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto model)
+        {
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == model.PhoneNumber);
+            if (user == null)
+            {
+                return NotFound("المستخدم غير موجود!");
+            }
+
+            var result = await _userManager.ChangePasswordAsync(user, model.CurrentPassword, model.NewPassword);
+
+            if (!result.Succeeded)
+            {
+                return BadRequest(result.Errors);
+            }
+
+            return Ok("تم تغيير الرقم السري بنجاح!");
+        }
+
+        // 5. Forgot Password: api/Auth/forgot-password
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto model)
+        {
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == model.PhoneNumber);
+            if (user == null)
+            {
+                return NotFound("المستخدم غير موجود!");
+            }
+
+            // Generate an OTP token using the Phone token provider
+            var token = await _userManager.GenerateUserTokenAsync(user, "Phone", "ResetPassword");
+
+            return Ok(new
+            {
+                Message = "تم توليد رمز إعادة تعيين كلمة المرور بنجاح وارتباطه برقم الجوال!",
+                Token = token
+            });
+        }
+
+        // 6. Reset Password: api/Auth/reset-password
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto model)
+        {
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == model.PhoneNumber);
+            if (user == null)
+            {
+                return NotFound("المستخدم غير موجود!");
+            }
+
+            // Verify the token using the Phone token provider
+            var isValid = await _userManager.VerifyUserTokenAsync(user, "Phone", "ResetPassword", model.Token);
+            if (!isValid)
+            {
+                return BadRequest(new[] { new { code = "InvalidToken", description = "رمز إعادة التعيين غير صحيح أو انتهت صلاحيته!" } });
+            }
+
+            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var result = await _userManager.ResetPasswordAsync(user, resetToken, model.NewPassword);
+
+            if (!result.Succeeded)
+            {
+                return BadRequest(result.Errors);
+            }
+
+            return Ok("تم إعادة تعيين كلمة المرور الجديدة بنجاح!");
+        }
+
+        // 7. Create Role: api/Auth/create-role
+        [HttpPost("create-role")]
+        public async Task<IActionResult> CreateRole([FromBody] CreateRoleDto model)
+        {
+            var roleExists = await _roleManager.RoleExistsAsync(model.RoleName);
+
+            if (roleExists)
+            {
+                return BadRequest("Role already exists");
+            }
+
+            var role = new IdentityRole(model.RoleName);
+            var result = await _roleManager.CreateAsync(role);
+
+            if (!result.Succeeded)
+            {
+                return BadRequest(result.Errors);
+            }
+
+            return Ok("Role created successfully");
+        }
+
+        // 8. Get All Roles: api/Auth/roles
+        [HttpGet("roles")]
+        public async Task<IActionResult> GetAllRoles()
+        {
+            var roles = await _roleManager.Roles
+                .Select(r => new
+                {
+                    r.Id,
+                    r.Name
+                })
+                .ToListAsync();
+
+            return Ok(roles);
+        }
+
+        // 9. Create Super Admin: api/Auth/create-superadmin
+        [HttpPost("create-superadmin")]
+        public async Task<IActionResult> CreateSuperAdmin([FromBody] CreateSuperAdminDto model)
+        {
+            var roleExists = await _roleManager.RoleExistsAsync("SuperAdmin");
+
+            if (!roleExists)
+            {
+                await _roleManager.CreateAsync(new IdentityRole("SuperAdmin"));
+            }
+
+            var userExists = await _userManager.Users.AnyAsync(u => u.PhoneNumber == model.PhoneNumber);
+
+            if (userExists)
+            {
+                return BadRequest("User with this phone number already exists");
+            }
+
+            var user = new ApplicationUser
+            {
+                UserName = model.Username,
+                PhoneNumber = model.PhoneNumber,
+                EmailConfirmed = true
+            };
+
+            var result = await _userManager.CreateAsync(user, model.Password);
+
+            if (!result.Succeeded)
+            {
+                return BadRequest(result.Errors);
+            }
+
+            await _userManager.AddToRoleAsync(user, "SuperAdmin");
+
+            return Ok("SuperAdmin created successfully");
+        }
+
+        // 10. Delete User: api/Auth/delete-user/{userId}
+        [HttpDelete("delete-user/{userId}")]
+        public async Task<IActionResult> DeleteUser(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return NotFound("المستخدم غير موجود!");
+            }
+            var result = await _userManager.DeleteAsync(user);
+            if (!result.Succeeded)
+            {
+                return BadRequest(result.Errors);
+            }
+            return Ok(new { Message = "تم حذف المستخدم بنجاح!" });
+        }
+    }
+}
