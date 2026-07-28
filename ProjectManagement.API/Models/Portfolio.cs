@@ -15,6 +15,8 @@ namespace ProjectManagement.API.Models
 
         [Column(TypeName = "decimal(18, 2)")]
         public decimal Budget { get; set; }
+        [MaxLength(100)]
+        public string Category { get; set; } = string.Empty;
 
         public int Status { get; set; } // 1 = Active, 2 = Completed, 3 = Pending, 4 = Rejected
 
