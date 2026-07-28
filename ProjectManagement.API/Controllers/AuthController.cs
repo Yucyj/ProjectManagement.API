@@ -29,12 +29,63 @@ namespace ProjectManagement.API.Controllers
             _context = context;
         }
 
+        // Helper: Validate and normalize Saudi mobile numbers to +9665xxxxxxxx
+        private string? NormalizeAndValidateSaudiPhone(string phoneNumber)
+        {
+            if (string.IsNullOrWhiteSpace(phoneNumber))
+                return null;
+
+            // Remove any spaces, dashes, or parentheses
+            var cleaned = phoneNumber.Trim().Replace(" ", "").Replace("-", "").Replace("(", "").Replace(")", "");
+
+            // If it starts with +966
+            if (cleaned.StartsWith("+966"))
+            {
+                var rest = cleaned.Substring(4);
+                if (rest.Length == 9 && rest.All(char.IsDigit) && rest.StartsWith("5"))
+                {
+                    return cleaned;
+                }
+            }
+            // If it starts with 966
+            else if (cleaned.StartsWith("966"))
+            {
+                var rest = cleaned.Substring(3);
+                if (rest.Length == 9 && rest.All(char.IsDigit) && rest.StartsWith("5"))
+                {
+                    return "+" + cleaned;
+                }
+            }
+            // If it starts with 05
+            else if (cleaned.StartsWith("05"))
+            {
+                var rest = cleaned.Substring(1); // remove leading 0, keeping 5xxxxxxxxx
+                if (rest.Length == 9 && rest.All(char.IsDigit))
+                {
+                    return "+966" + rest;
+                }
+            }
+            // If it starts with 5 (length 9)
+            else if (cleaned.StartsWith("5") && cleaned.Length == 9 && cleaned.All(char.IsDigit))
+            {
+                return "+966" + cleaned;
+            }
+
+            return null; // Invalid Saudi mobile format
+        }
+
         // 1. Register: api/Auth/register
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto model)
         {
+            var formattedPhone = NormalizeAndValidateSaudiPhone(model.PhoneNumber);
+            if (formattedPhone == null)
+            {
+                return BadRequest("رقم الجوال غير صحيح! يجب أن يكون رقم جوال سعودي يبدأ بـ 5 أو 05 أو +966 ويحتوي على أرقام فقط.");
+            }
+
             // Check if phone number already exists
-            var phoneExists = await _userManager.Users.AnyAsync(u => u.PhoneNumber == model.PhoneNumber);
+            var phoneExists = await _userManager.Users.AnyAsync(u => u.PhoneNumber == formattedPhone);
             if (phoneExists)
                 return BadRequest("رقم الجوال هذا مسجل مسبقاً!");
 
@@ -46,7 +97,7 @@ namespace ProjectManagement.API.Controllers
             var user = new ApplicationUser
             {
                 UserName = model.Username,
-                PhoneNumber = model.PhoneNumber
+                PhoneNumber = formattedPhone
             };
 
             var result = await _userManager.CreateAsync(user, model.Password);
@@ -63,8 +114,14 @@ namespace ProjectManagement.API.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto model)
         {
+            var formattedPhone = NormalizeAndValidateSaudiPhone(model.PhoneNumber);
+            if (formattedPhone == null)
+            {
+                return BadRequest("رقم الجوال غير صحيح! يجب أن يكون رقم جوال سعودي يبدأ بـ 5 أو 05 أو +966 ويحتوي على أرقام فقط.");
+            }
+
             // Find user by phone number instead of email
-            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == model.PhoneNumber);
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == formattedPhone);
 
             if (user != null && await _userManager.CheckPasswordAsync(user, model.Password))
             {
@@ -152,7 +209,13 @@ namespace ProjectManagement.API.Controllers
         [HttpPost("change-password")]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto model)
         {
-            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == model.PhoneNumber);
+            var formattedPhone = NormalizeAndValidateSaudiPhone(model.PhoneNumber);
+            if (formattedPhone == null)
+            {
+                return BadRequest("رقم الجوال غير صحيح!");
+            }
+
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == formattedPhone);
             if (user == null)
             {
                 return NotFound("المستخدم غير موجود!");
@@ -172,7 +235,13 @@ namespace ProjectManagement.API.Controllers
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto model)
         {
-            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == model.PhoneNumber);
+            var formattedPhone = NormalizeAndValidateSaudiPhone(model.PhoneNumber);
+            if (formattedPhone == null)
+            {
+                return BadRequest("رقم الجوال غير صحيح!");
+            }
+
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == formattedPhone);
             if (user == null)
             {
                 return NotFound("المستخدم غير موجود!");
@@ -192,7 +261,13 @@ namespace ProjectManagement.API.Controllers
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto model)
         {
-            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == model.PhoneNumber);
+            var formattedPhone = NormalizeAndValidateSaudiPhone(model.PhoneNumber);
+            if (formattedPhone == null)
+            {
+                return BadRequest("رقم الجوال غير صحيح!");
+            }
+
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == formattedPhone);
             if (user == null)
             {
                 return NotFound("المستخدم غير موجود!");
@@ -257,6 +332,12 @@ namespace ProjectManagement.API.Controllers
         [HttpPost("create-superadmin")]
         public async Task<IActionResult> CreateSuperAdmin([FromBody] CreateSuperAdminDto model)
         {
+            var formattedPhone = NormalizeAndValidateSaudiPhone(model.PhoneNumber);
+            if (formattedPhone == null)
+            {
+                return BadRequest("رقم الجوال غير صحيح!");
+            }
+
             var roleExists = await _roleManager.RoleExistsAsync("SuperAdmin");
 
             if (!roleExists)
@@ -264,7 +345,7 @@ namespace ProjectManagement.API.Controllers
                 await _roleManager.CreateAsync(new IdentityRole("SuperAdmin"));
             }
 
-            var userExists = await _userManager.Users.AnyAsync(u => u.PhoneNumber == model.PhoneNumber);
+            var userExists = await _userManager.Users.AnyAsync(u => u.PhoneNumber == formattedPhone);
 
             if (userExists)
             {
@@ -274,7 +355,7 @@ namespace ProjectManagement.API.Controllers
             var user = new ApplicationUser
             {
                 UserName = model.Username,
-                PhoneNumber = model.PhoneNumber,
+                PhoneNumber = formattedPhone,
                 EmailConfirmed = true
             };
 
