@@ -122,6 +122,7 @@ namespace ProjectManagement.API.Controllers
 
             return Ok(portfolio);
         }
+
         [HttpDelete("{id}")]
         [Authorize]
         public async Task<IActionResult> DeletePortfolio(int id)

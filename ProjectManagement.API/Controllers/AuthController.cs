@@ -14,21 +14,24 @@ namespace ProjectManagement.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+
     public class AuthController : ControllerBase
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ApplicationDbContext _context;
+        private readonly IConfiguration _configuration;
 
         public AuthController(
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
-            ApplicationDbContext context)
+            ApplicationDbContext context,
+            IConfiguration configuration)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _context = context;
+            _configuration = configuration;
         }
 
         // Helper: Validate and normalize Saudi mobile numbers to +9665xxxxxxxx
@@ -113,6 +116,7 @@ namespace ProjectManagement.API.Controllers
         }
 
         // 2. Login: api/Auth/login
+    
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto model)
         {
@@ -141,12 +145,12 @@ namespace ProjectManagement.API.Controllers
                     authClaims.Add(new Claim(ClaimTypes.Role, role));
                 }
 
-                var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("FahdProjectManagementSecretKey2026_JWT_Secure!"));
+                var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
 
                 var token = new JwtSecurityToken(
-                    issuer: "ProjectManagementSecretIssuer",
-                    audience: "ProjectManagementSecretAudience",
-                    expires: DateTime.Now.AddHours(3),
+                    issuer: _configuration["Jwt:Issuer"],
+                    audience: _configuration["Jwt:Audience"],
+                                    expires: DateTime.Now.AddHours(3),
                     claims: authClaims,
                     signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
                 );
