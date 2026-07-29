@@ -14,7 +14,6 @@ namespace ProjectManagement.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-
     public class AuthController : ControllerBase
     {
         private readonly UserManager<ApplicationUser> _userManager;
@@ -33,7 +32,6 @@ namespace ProjectManagement.API.Controllers
             _context = context;
             _configuration = configuration;
         }
-
         // Helper: Validate and normalize Saudi mobile numbers to +9665xxxxxxxx
         private string? NormalizeAndValidateSaudiPhone(string phoneNumber)
         {
@@ -116,74 +114,122 @@ namespace ProjectManagement.API.Controllers
         }
 
         // 2. Login: api/Auth/login
-    
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto model)
         {
-            var formattedPhone = NormalizeAndValidateSaudiPhone(model.PhoneNumber);
+            var formattedPhone =
+                NormalizeAndValidateSaudiPhone(model.PhoneNumber);
+
             if (formattedPhone == null)
             {
-                return BadRequest("رقم الجوال غير صحيح! يجب أن يكون رقم جوال سعودي يبدأ بـ 5 أو 05 أو +966 ويحتوي على أرقام فقط.");
+                return BadRequest(
+                    "رقم الجوال غير صحيح! يجب أن يكون رقم جوال سعودي يبدأ بـ 5 أو 05 أو +966 ويحتوي على أرقام فقط.");
             }
 
-            // Find user by phone number instead of email
-            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == formattedPhone);
+            var user = await _userManager.Users
+                .FirstOrDefaultAsync(u => u.PhoneNumber == formattedPhone);
 
-            if (user != null && await _userManager.CheckPasswordAsync(user, model.Password))
+            if (user == null ||
+                !await _userManager.CheckPasswordAsync(user, model.Password))
             {
-                var roles = await _userManager.GetRolesAsync(user);
-                var authClaims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.NameIdentifier, user.Id),
-                    new Claim(ClaimTypes.Name, user.UserName ?? string.Empty),
-                    new Claim(ClaimTypes.MobilePhone, user.PhoneNumber ?? string.Empty),
-                    new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                };
+                return Unauthorized(
+                    "رقم الجوال أو الرقم السري غير صحيح!");
+            }
 
-                foreach (var role in roles)
-                {
-                    authClaims.Add(new Claim(ClaimTypes.Role, role));
-                }
+            var roles = await _userManager.GetRolesAsync(user);
 
-                var authSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
+            var authClaims = new List<Claim>
+    {
+        new Claim(
+            ClaimTypes.NameIdentifier,
+            user.Id),
 
-                var token = new JwtSecurityToken(
-                    issuer: _configuration["Jwt:Issuer"],
-                    audience: _configuration["Jwt:Audience"],
-                                    expires: DateTime.Now.AddHours(3),
-                    claims: authClaims,
-                    signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
-                );
+        new Claim(
+            ClaimTypes.Name,
+            user.UserName ?? string.Empty),
 
-                return Ok(new
+        new Claim(
+            ClaimTypes.MobilePhone,
+            user.PhoneNumber ?? string.Empty),
+
+        new Claim(
+            JwtRegisteredClaimNames.Jti,
+            Guid.NewGuid().ToString())
+    };
+
+            foreach (var role in roles)
+            {
+                authClaims.Add(
+                    new Claim(ClaimTypes.Role, role));
+            }
+
+            // قراءة إعدادات JWT من appsettings.json
+            var jwtKey = _configuration["Jwt:Key"];
+            var jwtIssuer = _configuration["Jwt:Issuer"];
+            var jwtAudience = _configuration["Jwt:Audience"];
+
+            var expiryHours =
+                _configuration.GetValue<int?>("Jwt:ExpiryHours") ?? 3;
+
+            if (string.IsNullOrWhiteSpace(jwtKey) ||
+                string.IsNullOrWhiteSpace(jwtIssuer) ||
+                string.IsNullOrWhiteSpace(jwtAudience))
+            {
+                return StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    new
+                    {
+                        message = "JWT settings are missing in appsettings.json."
+                    });
+            }
+
+            var signingKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtKey));
+
+            var expiration =
+                DateTime.UtcNow.AddHours(expiryHours);
+
+            var token = new JwtSecurityToken(
+                issuer: jwtIssuer,
+                audience: jwtAudience,
+                claims: authClaims,
+                notBefore: DateTime.UtcNow,
+                expires: expiration,
+                signingCredentials: new SigningCredentials(
+                    signingKey,
+                    SecurityAlgorithms.HmacSha256)
+            );
+
+            var tokenValue =
+                new JwtSecurityTokenHandler().WriteToken(token);
+
+            return Ok(new
+            {
+                id = user.Id,
+                userId = user.Id,
+                username = user.UserName,
+                phoneNumber = user.PhoneNumber,
+                token = tokenValue,
+                expiration,
+
+                user = new
                 {
                     id = user.Id,
-                    userId = user.Id,
                     username = user.UserName,
                     phoneNumber = user.PhoneNumber,
-                    token = new JwtSecurityTokenHandler().WriteToken(token),
-                    expiration = token.ValidTo,
-                    user = new
-                    {
-                        id = user.Id,
-                        username = user.UserName,
-                        phoneNumber = user.PhoneNumber,
-                        nameEn = user.NameEn,
-                        nameAr = user.NameAr,
-                        titleEn = user.TitleEn,
-                        titleAr = user.TitleAr,
-                        companyEn = user.CompanyEn,
-                        companyAr = user.CompanyAr,
-                        profilePhoto = user.ProfilePhoto,
-                        backgroundPhoto = user.BackgroundPhoto,
-                        aboutAr = user.AboutAr,
-                        aboutEn = user.AboutEn,
-                        roles = roles
-                    }
-                });
-            }
-
-            return Unauthorized("رقم الجوال أو الرقم السري غير صحيح!");
+                    nameEn = user.NameEn,
+                    nameAr = user.NameAr,
+                    titleEn = user.TitleEn,
+                    titleAr = user.TitleAr,
+                    companyEn = user.CompanyEn,
+                    companyAr = user.CompanyAr,
+                    profilePhoto = user.ProfilePhoto,
+                    backgroundPhoto = user.BackgroundPhoto,
+                    aboutAr = user.AboutAr,
+                    aboutEn = user.AboutEn,
+                    roles
+                }
+            });
         }
 
         // 3. Get All Users: api/Auth/all-users
