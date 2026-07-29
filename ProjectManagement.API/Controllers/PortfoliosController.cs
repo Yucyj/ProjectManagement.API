@@ -1,12 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ProjectManagement.API.Data;
 using ProjectManagement.API.DTOs;
 using ProjectManagement.API.Models;
+using System.Security.Claims;
 
 
 namespace ProjectManagement.API.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class PortfoliosController : ControllerBase
@@ -31,6 +34,7 @@ namespace ProjectManagement.API.Controllers
                     Name = p.Name,
                     Description = p.Description,
                     Budget = p.Budget,
+                    Category = p.Category,
                     Status = p.Status,
                     SponsorName = p.SponsorName,
                     ManagerName = p.ManagerName,
@@ -72,6 +76,86 @@ namespace ProjectManagement.API.Controllers
             };
 
             return Ok(result);
+        }
+        [HttpPost]
+        public async Task<ActionResult<Portfolio>> CreatePortfolio(CreatePortfolioDto dto)
+        {
+            var portfolio = new Portfolio
+            {
+                Name = dto.Name,
+                Description = dto.Description,
+                Budget = dto.Budget,
+                Category = dto.Category,
+                Status = dto.Status,
+                SponsorName = dto.SponsorName,
+                ManagerName = dto.ManagerName,
+                OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier)!,
+                CreatedDate = DateTime.UtcNow
+            };
+
+            _context.Portfolios.Add(portfolio);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetPortfolio), new { id = portfolio.Id }, portfolio);
+        }
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdatePortfolio(int id, UpdatePortfolioDto dto)
+        {
+            var portfolio = await _context.Portfolios.FindAsync(id);
+
+            if (portfolio == null)
+                return NotFound();
+
+            portfolio.Name = dto.Name;
+            portfolio.Description = dto.Description;
+            portfolio.Budget = dto.Budget;
+            portfolio.Category = dto.Category;
+            portfolio.Status = dto.Status;
+            portfolio.SponsorName = dto.SponsorName;
+            portfolio.ManagerName = dto.ManagerName;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(portfolio);
+        }
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeletePortfolio(int id)
+        {
+            var portfolio = await _context.Portfolios
+                .Include(p => p.Projects)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (portfolio == null)
+                return NotFound();
+
+            if (portfolio.Projects.Any())
+            {
+                return BadRequest("Cannot delete a portfolio that contains projects.");
+            }
+
+            _context.Portfolios.Remove(portfolio);
+
+            await _context.SaveChangesAsync();
+
+            return Ok("Portfolio deleted successfully.");
+        }
+        [HttpGet("stats")]
+        public async Task<IActionResult> GetPortfolioStats()
+        {
+            var portfolios = await _context.Portfolios
+                .Include(p => p.Projects)
+                .ToListAsync();
+
+            var totalBudget = portfolios.Sum(p => p.Budget);
+
+            var totalProjects = portfolios.Sum(p => p.Projects.Count);
+
+            return Ok(new
+            {
+                TotalPortfolios = portfolios.Count,
+                TotalBudget = totalBudget,
+                TotalProjects = totalProjects
+            });
         }
     }
 }

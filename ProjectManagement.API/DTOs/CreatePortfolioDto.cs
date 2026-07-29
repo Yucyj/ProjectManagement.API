@@ -5,6 +5,7 @@ namespace ProjectManagement.API.DTOs
     public class CreatePortfolioDto
     {
         [Required]
+        [MaxLength(150)]
         public string Name { get; set; } = string.Empty;
 
         public string? Description { get; set; }
@@ -13,10 +14,15 @@ namespace ProjectManagement.API.DTOs
         public decimal Budget { get; set; }
 
         [Required]
+        [MaxLength(100)]
         public string Category { get; set; } = string.Empty;
 
+        public int Status { get; set; } = 1;
+
+        [MaxLength(150)]
         public string SponsorName { get; set; } = string.Empty;
 
+        [MaxLength(150)]
         public string ManagerName { get; set; } = string.Empty;
     }
 }
