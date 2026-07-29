@@ -22,6 +22,7 @@ namespace ProjectManagement.API.Controllers
         }
 
         [HttpGet]
+        [Authorize]
         public async Task<ActionResult<IEnumerable<PortfolioDetailsDto>>> GetPortfolios()
         {
             var portfolios = await _context.Portfolios
@@ -48,6 +49,7 @@ namespace ProjectManagement.API.Controllers
             return Ok(portfolios);
         }
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<ActionResult<PortfolioDetailsDto>> GetPortfolio(int id)
         {
             var portfolio = await _context.Portfolios
@@ -78,6 +80,7 @@ namespace ProjectManagement.API.Controllers
             return Ok(result);
         }
         [HttpPost]
+        [Authorize]
         public async Task<ActionResult<Portfolio>> CreatePortfolio(CreatePortfolioDto dto)
         {
             var portfolio = new Portfolio
@@ -99,6 +102,7 @@ namespace ProjectManagement.API.Controllers
             return CreatedAtAction(nameof(GetPortfolio), new { id = portfolio.Id }, portfolio);
         }
         [HttpPut("{id}")]
+        [Authorize]
         public async Task<IActionResult> UpdatePortfolio(int id, UpdatePortfolioDto dto)
         {
             var portfolio = await _context.Portfolios.FindAsync(id);
@@ -119,6 +123,7 @@ namespace ProjectManagement.API.Controllers
             return Ok(portfolio);
         }
         [HttpDelete("{id}")]
+        [Authorize]
         public async Task<IActionResult> DeletePortfolio(int id)
         {
             var portfolio = await _context.Portfolios
@@ -140,6 +145,7 @@ namespace ProjectManagement.API.Controllers
             return Ok("Portfolio deleted successfully.");
         }
         [HttpGet("stats")]
+        [Authorize]
         public async Task<IActionResult> GetPortfolioStats()
         {
             var portfolios = await _context.Portfolios
