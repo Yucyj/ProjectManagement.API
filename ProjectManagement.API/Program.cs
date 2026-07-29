@@ -24,14 +24,16 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// Configure CORS
+// Configure CORS for Vercel and Localhost
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAngularApp",
-        policy => policy.WithOrigins("http://localhost:4200")
-                        .AllowAnyMethod()
-                        .AllowAnyHeader()
-                        .AllowCredentials());
+    options.AddPolicy("AllowAngularApp", policy =>
+    {
+        policy.SetIsOriginAllowed(origin => true) // يسمح بطلبات Vercel وأي دومين آخر
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
 });
 
 // Configure OpenAPI/Swagger
@@ -40,15 +42,13 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Enable Swagger in all environments (useful for testing MonsterASP deployment)
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
+// Use CORS Policy before Authentication/Authorization
 app.UseCors("AllowAngularApp");
 
 app.UseAuthentication();
