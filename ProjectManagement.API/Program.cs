@@ -26,6 +26,7 @@ builder.Services
         options.Password.RequireUppercase = false;
         options.Password.RequireLowercase = false;
 
+<<<<<<< HEAD
         options.User.RequireUniqueEmail = true;
     })
     .AddEntityFrameworkStores<ApplicationDbContext>()
@@ -66,11 +67,18 @@ builder.Services
 builder.Services.AddAuthorization();
 
 // CORS
+=======
+// Configure CORS for Vercel and Localhost
+>>>>>>> master
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularApp", policy =>
     {
+<<<<<<< HEAD
         policy.SetIsOriginAllowed(_ => true)
+=======
+        policy.SetIsOriginAllowed(origin => true) // يسمح بطلبات Vercel وأي دومين آخر
+>>>>>>> master
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -101,11 +109,16 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+<<<<<<< HEAD
+=======
+// Enable Swagger in all environments (useful for testing MonsterASP deployment)
+>>>>>>> master
 app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
+// Use CORS Policy before Authentication/Authorization
 app.UseCors("AllowAngularApp");
 
 // الترتيب مهم
