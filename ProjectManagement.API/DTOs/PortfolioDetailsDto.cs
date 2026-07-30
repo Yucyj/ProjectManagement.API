@@ -1,4 +1,6 @@
-﻿namespace ProjectManagement.API.DTOs
+using System;
+
+namespace ProjectManagement.API.DTOs
 {
     public class PortfolioDetailsDto
     {
@@ -24,6 +26,19 @@
         public int ProjectsCount { get; set; }
 
         public int ProgramsCount { get; set; }
-       
+
+        // Frontend compatibility mappings
+        public string nameAr => Name;
+        public string nameEn => Name;
+        public string? descriptionAr => Description;
+        public string? descriptionEn => Description;
+        public string status => Status switch
+        {
+            1 => "Active",
+            2 => "Completed",
+            3 => "OnHold",
+            4 => "Rejected",
+            _ => "Active"
+        };
     }
 }
