@@ -1,4 +1,6 @@
-﻿namespace ProjectManagement.API.DTOs
+using System;
+
+namespace ProjectManagement.API.DTOs
 {
     public class PortfolioDetailsDto
     {
@@ -11,7 +13,7 @@
         public decimal Budget { get; set; }
         public string Category { get; set; } = string.Empty;
 
-        public int Status { get; set; }
+        public string Status { get; set; } = "Active";
 
         public string SponsorName { get; set; } = string.Empty;
 
@@ -24,6 +26,11 @@
         public int ProjectsCount { get; set; }
 
         public int ProgramsCount { get; set; }
-       
+
+        // Frontend compatibility mappings
+        public string nameAr => Name;
+        public string nameEn => Name;
+        public string? descriptionAr => Description;
+        public string? descriptionEn => Description;
     }
 }
