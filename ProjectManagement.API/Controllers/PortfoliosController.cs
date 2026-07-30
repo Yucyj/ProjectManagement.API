@@ -188,7 +188,7 @@ namespace ProjectManagement.API.Controllers
             portfolio.SponsorName = dto.SponsorName ?? portfolio.SponsorName;
             portfolio.ManagerName = dto.ManagerName ?? portfolio.ManagerName;
             portfolio.OwnerName = !string.IsNullOrEmpty(dto.OwnerName) ? dto.OwnerName : portfolio.OwnerName;
-            portfolio.AttachedFiles = dto.AttachedFiles ?? portfolio.AttachedFiles;
+            portfolio.AttachedFiles = dto.AttachedFiles;
 
             _context.Entry(portfolio).State = EntityState.Modified;
             await _context.SaveChangesAsync();
