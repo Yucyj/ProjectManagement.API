@@ -32,6 +32,9 @@ namespace ProjectManagement.API.Models
         [MaxLength(150)]
         public string ManagerName { get; set; } = string.Empty;
 
+        [MaxLength(150)]
+        public string OwnerName { get; set; } = string.Empty;
+
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
         // Navigation properties

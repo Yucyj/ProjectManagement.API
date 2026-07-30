@@ -21,5 +21,7 @@ namespace ProjectManagement.API.DTOs
         public string SponsorName { get; set; } = string.Empty;
 
         public string ManagerName { get; set; } = string.Empty;
+
+        public string OwnerName { get; set; } = string.Empty;
     }
 }

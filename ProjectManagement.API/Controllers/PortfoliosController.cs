@@ -67,7 +67,8 @@ namespace ProjectManagement.API.Controllers
                     SponsorName = p.SponsorName,
                     ManagerName = p.ManagerName,
                     CreatedDate = p.CreatedDate,
-                    OwnerName = p.Owner != null ? p.Owner.UserName : null,
+                    OwnerName = !string.IsNullOrEmpty(p.OwnerName) ? p.OwnerName
+                                : (p.Owner != null ? p.Owner.UserName : null),
                     ProgramsCount = p.Programs.Count,
                     ProjectsCount = p.Projects.Count
                 })
@@ -101,7 +102,8 @@ namespace ProjectManagement.API.Controllers
                 SponsorName = portfolio.SponsorName,
                 ManagerName = portfolio.ManagerName,
                 CreatedDate = portfolio.CreatedDate,
-                OwnerName = portfolio.Owner?.UserName,
+                OwnerName = !string.IsNullOrEmpty(portfolio.OwnerName) ? portfolio.OwnerName
+                            : portfolio.Owner?.UserName,
                 ProgramsCount = portfolio.Programs.Count,
                 ProjectsCount = portfolio.Projects.Count
             };
@@ -133,6 +135,7 @@ namespace ProjectManagement.API.Controllers
                 Status = MapStatusStringToInt(dto.Status),
                 SponsorName = dto.SponsorName ?? string.Empty,
                 ManagerName = dto.ManagerName ?? string.Empty,
+                OwnerName = dto.OwnerName ?? string.Empty,
                 OwnerId = userId,
                 CreatedDate = DateTime.UtcNow
             };
@@ -153,7 +156,7 @@ namespace ProjectManagement.API.Controllers
                 SponsorName = portfolio.SponsorName,
                 ManagerName = portfolio.ManagerName,
                 CreatedDate = portfolio.CreatedDate,
-                OwnerName = User.FindFirstValue(ClaimTypes.Name) ?? "Owner"
+                OwnerName = portfolio.OwnerName
             };
 
             return CreatedAtAction(nameof(GetPortfolio), new { id = portfolio.Id }, result);
@@ -180,6 +183,7 @@ namespace ProjectManagement.API.Controllers
             portfolio.Status = MapStatusStringToInt(dto.Status);
             portfolio.SponsorName = dto.SponsorName ?? portfolio.SponsorName;
             portfolio.ManagerName = dto.ManagerName ?? portfolio.ManagerName;
+            portfolio.OwnerName = !string.IsNullOrEmpty(dto.OwnerName) ? dto.OwnerName : portfolio.OwnerName;
 
             _context.Entry(portfolio).State = EntityState.Modified;
             await _context.SaveChangesAsync();

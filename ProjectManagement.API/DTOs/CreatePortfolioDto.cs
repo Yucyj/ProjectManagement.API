@@ -24,5 +24,8 @@ namespace ProjectManagement.API.DTOs
 
         [MaxLength(150)]
         public string ManagerName { get; set; } = string.Empty;
+
+        [MaxLength(150)]
+        public string OwnerName { get; set; } = string.Empty;
     }
 }
