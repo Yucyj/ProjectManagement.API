@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -102,6 +102,11 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+app.MapGet("/", context =>
+{
+    context.Response.Redirect("/swagger/index.html", permanent: false);
+    return Task.CompletedTask;
+});
 
 app.UseSwagger();
 app.UseSwaggerUI();

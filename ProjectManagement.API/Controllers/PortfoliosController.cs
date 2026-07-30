@@ -213,16 +213,19 @@ namespace ProjectManagement.API.Controllers
         {
             var portfolios = await _context.Portfolios
                 .Include(p => p.Projects)
+                .Include(p => p.Programs)
                 .ToListAsync();
 
             var totalBudget = portfolios.Sum(p => p.Budget);
             var totalProjects = portfolios.Sum(p => p.Projects.Count);
+            var totalPrograms = portfolios.Sum(p => p.Programs.Count);
 
             return Ok(new
             {
                 TotalPortfolios = portfolios.Count,
-                TotalBudget = totalBudget,
-                TotalProjects = totalProjects
+                TotalPrograms = totalPrograms,
+                TotalProjects = totalProjects,
+                TotalBudget = totalBudget
             });
         }
     }
