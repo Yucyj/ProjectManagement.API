@@ -22,6 +22,7 @@ namespace ProjectManagement.API.DTOs
         public DateTime CreatedDate { get; set; }
 
         public string? OwnerName { get; set; }
+        public string? AttachedFiles { get; set; }
 
         public int ProjectsCount { get; set; }
 

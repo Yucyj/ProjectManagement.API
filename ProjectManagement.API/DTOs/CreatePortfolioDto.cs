@@ -27,5 +27,7 @@ namespace ProjectManagement.API.DTOs
 
         [MaxLength(150)]
         public string OwnerName { get; set; } = string.Empty;
+
+        public string? AttachedFiles { get; set; }
     }
 }

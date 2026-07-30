@@ -35,6 +35,8 @@ namespace ProjectManagement.API.Models
         [MaxLength(150)]
         public string OwnerName { get; set; } = string.Empty;
 
+        public string? AttachedFiles { get; set; }
+
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
         // Navigation properties

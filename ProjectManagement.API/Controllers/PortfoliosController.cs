@@ -69,6 +69,7 @@ namespace ProjectManagement.API.Controllers
                     CreatedDate = p.CreatedDate,
                     OwnerName = !string.IsNullOrEmpty(p.OwnerName) ? p.OwnerName
                                 : (p.Owner != null ? p.Owner.UserName : null),
+                    AttachedFiles = p.AttachedFiles,
                     ProgramsCount = p.Programs.Count,
                     ProjectsCount = p.Projects.Count
                 })
@@ -104,6 +105,7 @@ namespace ProjectManagement.API.Controllers
                 CreatedDate = portfolio.CreatedDate,
                 OwnerName = !string.IsNullOrEmpty(portfolio.OwnerName) ? portfolio.OwnerName
                             : portfolio.Owner?.UserName,
+                AttachedFiles = portfolio.AttachedFiles,
                 ProgramsCount = portfolio.Programs.Count,
                 ProjectsCount = portfolio.Projects.Count
             };
@@ -136,6 +138,7 @@ namespace ProjectManagement.API.Controllers
                 SponsorName = dto.SponsorName ?? string.Empty,
                 ManagerName = dto.ManagerName ?? string.Empty,
                 OwnerName = dto.OwnerName ?? string.Empty,
+                AttachedFiles = dto.AttachedFiles,
                 OwnerId = userId,
                 CreatedDate = DateTime.UtcNow
             };
@@ -156,7 +159,8 @@ namespace ProjectManagement.API.Controllers
                 SponsorName = portfolio.SponsorName,
                 ManagerName = portfolio.ManagerName,
                 CreatedDate = portfolio.CreatedDate,
-                OwnerName = portfolio.OwnerName
+                OwnerName = portfolio.OwnerName,
+                AttachedFiles = portfolio.AttachedFiles
             };
 
             return CreatedAtAction(nameof(GetPortfolio), new { id = portfolio.Id }, result);
@@ -184,6 +188,7 @@ namespace ProjectManagement.API.Controllers
             portfolio.SponsorName = dto.SponsorName ?? portfolio.SponsorName;
             portfolio.ManagerName = dto.ManagerName ?? portfolio.ManagerName;
             portfolio.OwnerName = !string.IsNullOrEmpty(dto.OwnerName) ? dto.OwnerName : portfolio.OwnerName;
+            portfolio.AttachedFiles = dto.AttachedFiles ?? portfolio.AttachedFiles;
 
             _context.Entry(portfolio).State = EntityState.Modified;
             await _context.SaveChangesAsync();
@@ -231,6 +236,51 @@ namespace ProjectManagement.API.Controllers
                 TotalProjects = totalProjects,
                 TotalBudget = totalBudget
             });
+        }
+
+        [HttpPost("upload")]
+        public async Task<IActionResult> UploadFiles(List<IFormFile> files)
+        {
+            if (files == null || files.Count == 0)
+            {
+                return BadRequest("No files uploaded.");
+            }
+
+            var uploadedFilesList = new List<object>();
+            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            foreach (var file in files)
+            {
+                if (file.Length > 0)
+                {
+                    var originalName = file.FileName;
+                    var uniqueName = Guid.NewGuid().ToString() + Path.GetExtension(originalName);
+                    var filePath = Path.Combine(uploadsFolder, uniqueName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await file.CopyToAsync(stream);
+                    }
+
+                    var sizeInMb = (file.Length / (1024.0 * 1024.0)).ToString("F1") + " MB";
+                    var ext = Path.GetExtension(originalName).TrimStart('.').ToLower();
+
+                    uploadedFilesList.Add(new
+                    {
+                        name = originalName,
+                        path = "/uploads/" + uniqueName,
+                        size = sizeInMb,
+                        type = ext
+                    });
+                }
+            }
+
+            return Ok(uploadedFilesList);
         }
     }
 }
