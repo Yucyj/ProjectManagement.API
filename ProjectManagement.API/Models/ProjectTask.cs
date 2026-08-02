@@ -30,5 +30,8 @@ namespace ProjectManagement.API.Models
 
         [ForeignKey("AssigneeId")]
         public ApplicationUser? Assignee { get; set; }
+
+        [MaxLength(150)]
+        public string? AssigneeName { get; set; }
     }
 }
