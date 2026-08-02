@@ -54,7 +54,6 @@ namespace ProjectManagement.API.Controllers
         }
 
         // 1. Get tasks list with filters
-        [HttpGet]
         [HttpGet("all")]
         public async Task<ActionResult<IEnumerable<TaskDetailsDto>>> GetTasks(
             [FromQuery] int? projectId,
@@ -97,7 +96,6 @@ namespace ProjectManagement.API.Controllers
         }
 
         // 2. Get single task details
-        [HttpGet("{id}")]
         [HttpGet("details/{id}")]
         public async Task<ActionResult<TaskDetailsDto>> GetTask(int id)
         {
@@ -126,7 +124,6 @@ namespace ProjectManagement.API.Controllers
         }
 
         // 3. Create task
-        [HttpPost]
         [HttpPost("create")]
         public async Task<ActionResult<ProjectTask>> CreateTask([FromBody] CreateTaskDto dto)
         {
@@ -162,7 +159,6 @@ namespace ProjectManagement.API.Controllers
         }
 
         // 4. Update task
-        [HttpPut("{id}")]
         [HttpPut("update/{id}")]
         public async Task<IActionResult> UpdateTask(int id, [FromBody] UpdateTaskDto dto)
         {
@@ -192,7 +188,6 @@ namespace ProjectManagement.API.Controllers
         }
 
         // 5. Delete task
-        [HttpDelete("{id}")]
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> DeleteTask(int id)
         {
