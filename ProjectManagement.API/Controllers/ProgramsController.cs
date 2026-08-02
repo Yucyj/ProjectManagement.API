@@ -54,16 +54,16 @@ namespace ProjectManagement.API.Controllers
                 Status = p.Status,
                 ProgressPercentage = p.ProgressPercentage,
                 SponsorName = p.SponsorName,
-                ManagerName = p.Manager != null ? p.Manager.UserName! : "Not Assigned",
+                ManagerName = p.Manager != null ? p.Manager.UserName : "Not Assigned",
                 PortfolioName = p.Portfolio != null ? p.Portfolio.Name : "N/A",
                 PortfolioId = p.PortfolioId,
                 CreatedDate = p.CreatedDate,
                 AttachedDocumentUrls = !string.IsNullOrEmpty(p.AttachedDocumentUrls)
                     ? p.AttachedDocumentUrls.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
                     : new List<string>(),
-                ProjectsCount = p.Projects.Count,
-                // جمع كافة المهام من كل المشاريع التابعة للبرنامج
-                TasksCount = p.Projects.SelectMany(proj => proj.Tasks).Count()
+                // حماية العدادات من قيم null البرمجية لمنع الاستثناءات
+                ProjectsCount = p.Projects != null ? p.Projects.Count : 0,
+                TasksCount = p.Projects != null ? p.Projects.Where(proj => proj.Tasks != null).SelectMany(proj => proj.Tasks).Count() : 0
             }).ToListAsync();
 
             return Ok(programs);
@@ -92,15 +92,16 @@ namespace ProjectManagement.API.Controllers
                 Status = program.Status,
                 ProgressPercentage = program.ProgressPercentage,
                 SponsorName = program.SponsorName,
-                ManagerName = program.Manager != null ? program.Manager.UserName! : "Not Assigned",
+                ManagerName = program.Manager != null ? program.Manager.UserName : "Not Assigned",
                 PortfolioName = program.Portfolio != null ? program.Portfolio.Name : "N/A",
                 PortfolioId = program.PortfolioId,
                 CreatedDate = program.CreatedDate,
                 AttachedDocumentUrls = !string.IsNullOrEmpty(program.AttachedDocumentUrls)
                     ? program.AttachedDocumentUrls.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList()
                     : new List<string>(),
-                ProjectsCount = program.Projects.Count,
-                TasksCount = program.Projects.SelectMany(proj => proj.Tasks).Count()
+                // حماية العدادات من قيم null البرمجية لمنع الاستثناءات هنا أيضاً
+                ProjectsCount = program.Projects != null ? program.Projects.Count : 0,
+                TasksCount = program.Projects != null ? program.Projects.Where(proj => proj.Tasks != null).SelectMany(proj => proj.Tasks).Count() : 0
             };
 
             return Ok(result);
