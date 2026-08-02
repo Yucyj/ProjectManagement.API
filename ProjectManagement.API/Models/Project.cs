@@ -23,11 +23,15 @@ namespace ProjectManagement.API.Models
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
 
-        [Required]
-        public string ManagerId { get; set; } = string.Empty;
+        public string? ManagerId { get; set; }
 
         [ForeignKey("ManagerId")]
         public ApplicationUser? Manager { get; set; }
+
+        [MaxLength(150)]
+        public string ManagerName { get; set; } = string.Empty;
+
+        public string? AttachedFiles { get; set; }
 
         public int PortfolioId { get; set; }
 
