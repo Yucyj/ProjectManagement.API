@@ -92,7 +92,8 @@ namespace ProjectManagement.API.Controllers
                 CreatedDate = t.CreatedDate,
                 ProjectId = t.ProjectId,
                 ProjectName = t.Project != null ? t.Project.Name : "N/A",
-                AssigneeName = !string.IsNullOrEmpty(t.AssigneeName) ? t.AssigneeName : (t.Assignee != null ? t.Assignee.UserName : "Not Assigned")
+                AssigneeName = !string.IsNullOrEmpty(t.AssigneeName) ? t.AssigneeName : (t.Assignee != null ? t.Assignee.UserName : "Not Assigned"),
+                AttachedFiles = t.AttachedFiles
             }).ToList();
 
             return Ok(result);
@@ -120,7 +121,8 @@ namespace ProjectManagement.API.Controllers
                 CreatedDate = t.CreatedDate,
                 ProjectId = t.ProjectId,
                 ProjectName = t.Project != null ? t.Project.Name : "N/A",
-                AssigneeName = !string.IsNullOrEmpty(t.AssigneeName) ? t.AssigneeName : (t.Assignee != null ? t.Assignee.UserName : "Not Assigned")
+                AssigneeName = !string.IsNullOrEmpty(t.AssigneeName) ? t.AssigneeName : (t.Assignee != null ? t.Assignee.UserName : "Not Assigned"),
+                AttachedFiles = t.AttachedFiles
             };
 
             return Ok(result);
@@ -159,6 +161,7 @@ namespace ProjectManagement.API.Controllers
                 ProjectId = dto.ProjectId,
                 AssigneeName = dto.AssigneeName,
                 AssigneeId = userId, // Assign current user fallback
+                AttachedFiles = dto.AttachedFiles,
                 CreatedDate = DateTime.UtcNow
             };
 
@@ -197,6 +200,7 @@ namespace ProjectManagement.API.Controllers
             task.DueDate = dto.DueDate;
             task.ProjectId = dto.ProjectId;
             task.AssigneeName = dto.AssigneeName;
+            task.AttachedFiles = dto.AttachedFiles;
 
             _context.Entry(task).State = EntityState.Modified;
             await _context.SaveChangesAsync();
@@ -216,6 +220,48 @@ namespace ProjectManagement.API.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Task deleted successfully." });
+        }
+
+        // 6. Upload files for tasks
+        [HttpPost("upload")]
+        public async Task<IActionResult> UploadFiles(List<IFormFile> files)
+        {
+            if (files == null || files.Count == 0)
+            {
+                return BadRequest("No files uploaded.");
+            }
+
+            var uploadedFilesList = new List<object>();
+            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            foreach (var file in files)
+            {
+                if (file.Length > 0)
+                {
+                    var originalName = file.FileName;
+                    var uniqueName = Guid.NewGuid().ToString() + Path.GetExtension(originalName);
+                    var filePath = Path.Combine(uploadsFolder, uniqueName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await file.CopyToAsync(stream);
+                    }
+
+                    uploadedFilesList.Add(new
+                    {
+                        originalName = originalName,
+                        uniqueName = uniqueName,
+                        filePath = $"/uploads/{uniqueName}"
+                    });
+                }
+            }
+
+            return Ok(uploadedFilesList);
         }
     }
 }

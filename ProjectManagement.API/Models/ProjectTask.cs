@@ -33,5 +33,7 @@ namespace ProjectManagement.API.Models
 
         [MaxLength(150)]
         public string? AssigneeName { get; set; }
+
+        public string? AttachedFiles { get; set; }
     }
 }
