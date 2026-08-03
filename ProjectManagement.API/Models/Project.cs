@@ -50,5 +50,6 @@ namespace ProjectManagement.API.Models
         public ICollection<ProjectTask> Tasks { get; set; } = new List<ProjectTask>();
         public ICollection<Milestone> Milestones { get; set; } = new List<Milestone>();
         public ICollection<ChangeRequest> ChangeRequests { get; set; } = new List<ChangeRequest>();
+        public ICollection<ProjectMeeting> Meetings { get; set; } = new List<ProjectMeeting>();
     }
 }

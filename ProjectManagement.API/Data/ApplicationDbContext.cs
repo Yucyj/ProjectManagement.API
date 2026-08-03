@@ -17,6 +17,7 @@ namespace ProjectManagement.API.Data
         public DbSet<ProjectTask> Tasks { get; set; }
         public DbSet<Milestone> Milestones { get; set; }
         public DbSet<ChangeRequest> ChangeRequests { get; set; }
+        public DbSet<ProjectMeeting> Meetings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -95,6 +96,12 @@ namespace ProjectManagement.API.Data
                 .HasOne(cr => cr.Project)
                 .WithMany(p => p.ChangeRequests)
                 .HasForeignKey(cr => cr.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ProjectMeeting>()
+                .HasOne(m => m.Project)
+                .WithMany(p => p.Meetings)
+                .HasForeignKey(m => m.ProjectId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }
