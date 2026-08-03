@@ -62,6 +62,7 @@ namespace ProjectManagement.API.Controllers
         {
             var query = _context.Tasks
                 .Include(t => t.Project)
+                .Include(t => t.Assignee)
                 .AsQueryable();
 
             if (projectId.HasValue)
@@ -78,7 +79,9 @@ namespace ProjectManagement.API.Controllers
                 query = query.Where(t => t.Title.Contains(keyword) || (t.Description != null && t.Description.Contains(keyword)));
             }
 
-            var tasks = await query.Select(t => new TaskDetailsDto
+            var taskList = await query.ToListAsync();
+
+            var result = taskList.Select(t => new TaskDetailsDto
             {
                 Id = t.Id,
                 Title = t.Title,
@@ -90,9 +93,9 @@ namespace ProjectManagement.API.Controllers
                 ProjectId = t.ProjectId,
                 ProjectName = t.Project != null ? t.Project.Name : "N/A",
                 AssigneeName = !string.IsNullOrEmpty(t.AssigneeName) ? t.AssigneeName : (t.Assignee != null ? t.Assignee.UserName : "Not Assigned")
-            }).ToListAsync();
+            }).ToList();
 
-            return Ok(tasks);
+            return Ok(result);
         }
 
         // 2. Get single task details
