@@ -139,6 +139,13 @@ namespace ProjectManagement.API.Controllers
                 userId = firstUser?.Id ?? "default-user-id";
             }
 
+            // Validate Project exists
+            var projectExists = await _context.Projects.AnyAsync(p => p.Id == dto.ProjectId);
+            if (!projectExists)
+            {
+                return BadRequest(new { message = $"Project with ID {dto.ProjectId} does not exist. Please create a project first." });
+            }
+
             var task = new ProjectTask
             {
                 Title = dto.Title,
@@ -171,6 +178,13 @@ namespace ProjectManagement.API.Controllers
             if (task == null)
             {
                 return NotFound();
+            }
+
+            // Validate Project exists
+            var projectExists = await _context.Projects.AnyAsync(p => p.Id == dto.ProjectId);
+            if (!projectExists)
+            {
+                return BadRequest(new { message = $"Project with ID {dto.ProjectId} does not exist." });
             }
 
             task.Title = dto.Title;

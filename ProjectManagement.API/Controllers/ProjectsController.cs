@@ -158,6 +158,24 @@ namespace ProjectManagement.API.Controllers
                 userId = firstUser?.Id ?? "default-user-id";
             }
 
+            // Validate Portfolio exists
+            var portfolioExists = await _context.Portfolios.AnyAsync(p => p.Id == dto.PortfolioId);
+            if (!portfolioExists)
+            {
+                return BadRequest(new { message = $"Portfolio with ID {dto.PortfolioId} does not exist. Please create a portfolio first and use its ID." });
+            }
+
+            // Treat ProgramId 0 as null, otherwise validate if it exists
+            int? resolvedProgramId = (dto.ProgramId.HasValue && dto.ProgramId.Value != 0) ? dto.ProgramId.Value : null;
+            if (resolvedProgramId.HasValue)
+            {
+                var programExists = await _context.Programs.AnyAsync(p => p.Id == resolvedProgramId.Value);
+                if (!programExists)
+                {
+                    return BadRequest(new { message = $"Program with ID {resolvedProgramId.Value} does not exist." });
+                }
+            }
+
             var project = new Project
             {
                 Name = dto.Name,
@@ -170,7 +188,7 @@ namespace ProjectManagement.API.Controllers
                 ManagerName = dto.ManagerName,
                 ManagerId = userId, // Assign current user fallback
                 PortfolioId = dto.PortfolioId,
-                ProgramId = dto.ProgramId,
+                ProgramId = resolvedProgramId,
                 AttachedFiles = dto.AttachedFiles,
                 CreatedDate = DateTime.UtcNow
             };
@@ -196,6 +214,24 @@ namespace ProjectManagement.API.Controllers
                 return NotFound();
             }
 
+            // Validate Portfolio exists
+            var portfolioExists = await _context.Portfolios.AnyAsync(p => p.Id == dto.PortfolioId);
+            if (!portfolioExists)
+            {
+                return BadRequest(new { message = $"Portfolio with ID {dto.PortfolioId} does not exist." });
+            }
+
+            // Treat ProgramId 0 as null, otherwise validate if it exists
+            int? resolvedProgramId = (dto.ProgramId.HasValue && dto.ProgramId.Value != 0) ? dto.ProgramId.Value : null;
+            if (resolvedProgramId.HasValue)
+            {
+                var programExists = await _context.Programs.AnyAsync(p => p.Id == resolvedProgramId.Value);
+                if (!programExists)
+                {
+                    return BadRequest(new { message = $"Program with ID {resolvedProgramId.Value} does not exist." });
+                }
+            }
+
             project.Name = dto.Name;
             project.Description = dto.Description;
             project.Budget = dto.Budget;
@@ -205,7 +241,7 @@ namespace ProjectManagement.API.Controllers
             project.EndDate = dto.EndDate;
             project.ManagerName = dto.ManagerName;
             project.PortfolioId = dto.PortfolioId;
-            project.ProgramId = dto.ProgramId;
+            project.ProgramId = resolvedProgramId;
             project.AttachedFiles = dto.AttachedFiles;
 
             _context.Entry(project).State = EntityState.Modified;
