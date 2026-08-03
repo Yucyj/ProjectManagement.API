@@ -13,8 +13,8 @@ namespace ProjectManagement.API.DTOs
         
         public string Status { get; set; } = "To Do"; // "To Do", "In Progress", "In Review", "Done"
         
-        [Range(1, 3)]
-        public int Priority { get; set; } = 2; // 1 = Low, 2 = Medium, 3 = High
+        [Range(1, 4)]
+        public int Priority { get; set; } = 2; // 1 = Low, 2 = Medium, 3 = High, 4 = Critical
         
         public DateTime? DueDate { get; set; }
         
