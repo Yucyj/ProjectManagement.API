@@ -18,6 +18,7 @@ namespace ProjectManagement.API.Data
         public DbSet<Milestone> Milestones { get; set; }
         public DbSet<ChangeRequest> ChangeRequests { get; set; }
         public DbSet<ProjectMeeting> Meetings { get; set; }
+        public DbSet<ChangeRequestComment> ChangeRequestComments { get; set; }
 
         public DbSet<Plan> Plans { get; set; }
         public DbSet<PlanMilestone> PlanMilestones { get; set; }
@@ -119,6 +120,12 @@ namespace ProjectManagement.API.Data
                 .HasMany(p => p.Deliverables)
                 .WithOne()
                 .HasForeignKey(d => d.PlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ChangeRequestComment>()
+                .HasOne(c => c.ChangeRequest)
+                .WithMany()
+                .HasForeignKey(c => c.ChangeRequestId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

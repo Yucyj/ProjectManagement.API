@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ProjectManagement.API.Data;
 
@@ -11,9 +12,11 @@ using ProjectManagement.API.Data;
 namespace ProjectManagement.API.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260804103128_AddAttachedFilesToChangeRequests")]
+    partial class AddAttachedFilesToChangeRequests
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -311,41 +314,6 @@ namespace ProjectManagement.API.Migrations
                     b.HasIndex("RequestedById");
 
                     b.ToTable("ChangeRequests");
-                });
-
-            modelBuilder.Entity("ProjectManagement.API.Models.ChangeRequestComment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ChangeRequestId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("UserName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ChangeRequestId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("ChangeRequestComments");
                 });
 
             modelBuilder.Entity("ProjectManagement.API.Models.Milestone", b =>
@@ -754,25 +722,6 @@ namespace ProjectManagement.API.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("RequestedBy");
-                });
-
-            modelBuilder.Entity("ProjectManagement.API.Models.ChangeRequestComment", b =>
-                {
-                    b.HasOne("ProjectManagement.API.Models.ChangeRequest", "ChangeRequest")
-                        .WithMany()
-                        .HasForeignKey("ChangeRequestId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ProjectManagement.API.Models.ApplicationUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ChangeRequest");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ProjectManagement.API.Models.Milestone", b =>
