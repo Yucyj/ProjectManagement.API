@@ -19,6 +19,10 @@ namespace ProjectManagement.API.Data
         public DbSet<ChangeRequest> ChangeRequests { get; set; }
         public DbSet<ProjectMeeting> Meetings { get; set; }
 
+        public DbSet<Plan> Plans { get; set; }
+        public DbSet<PlanMilestone> PlanMilestones { get; set; }
+        public DbSet<PlanDeliverable> PlanDeliverables { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -102,6 +106,19 @@ namespace ProjectManagement.API.Data
                 .HasOne(m => m.Project)
                 .WithMany(p => p.Meetings)
                 .HasForeignKey(m => m.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+          
+            modelBuilder.Entity<Plan>()
+                .HasMany(p => p.Milestones)
+                .WithOne()
+                .HasForeignKey(m => m.PlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Plan>()
+                .HasMany(p => p.Deliverables)
+                .WithOne()
+                .HasForeignKey(d => d.PlanId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }
