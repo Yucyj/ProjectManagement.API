@@ -307,5 +307,77 @@ namespace ProjectManagement.API.Controllers
 
             return Ok(uploadedFilesList);
         }
+
+        // 9. Get all comments for a change request
+        [HttpGet("{requestId}/comments")]
+        public async Task<ActionResult<IEnumerable<CommentDto>>> GetComments(int requestId)
+        {
+            var comments = await _context.ChangeRequestComments
+                .Where(c => c.ChangeRequestId == requestId)
+                .OrderBy(c => c.CreatedDate)
+                .Select(c => new CommentDto
+                {
+                    Id = c.Id,
+                    ChangeRequestId = c.ChangeRequestId,
+                    UserId = c.UserId,
+                    UserName = c.UserName,
+                    Text = c.Text,
+                    CreatedDate = c.CreatedDate
+                })
+                .ToListAsync();
+
+            return Ok(comments);
+        }
+
+        // 10. Add a comment to a change request
+        [HttpPost("comments")]
+        public async Task<ActionResult<CommentDto>> CreateComment([FromBody] CreateCommentDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            string userName = "Abdallah Othman";
+            if (string.IsNullOrEmpty(userId))
+            {
+                var firstUser = await _context.Users.FirstOrDefaultAsync();
+                userId = firstUser?.Id ?? "default-user-id";
+                userName = firstUser?.UserName ?? "Abdallah Othman";
+            }
+            else
+            {
+                var user = await _context.Users.FindAsync(userId);
+                if (user != null)
+                {
+                    userName = user.UserName ?? "Abdallah Othman";
+                }
+            }
+
+            var comment = new ChangeRequestComment
+            {
+                ChangeRequestId = dto.ChangeRequestId,
+                UserId = userId,
+                UserName = userName,
+                Text = dto.Text,
+                CreatedDate = DateTime.UtcNow
+            };
+
+            _context.ChangeRequestComments.Add(comment);
+            await _context.SaveChangesAsync();
+
+            var result = new CommentDto
+            {
+                Id = comment.Id,
+                ChangeRequestId = comment.ChangeRequestId,
+                UserId = comment.UserId,
+                UserName = comment.UserName,
+                Text = comment.Text,
+                CreatedDate = comment.CreatedDate
+            };
+
+            return Ok(result);
+        }
     }
 }
