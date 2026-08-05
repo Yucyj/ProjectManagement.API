@@ -560,7 +560,19 @@ namespace ProjectManagement.API.Controllers
             if (phoneExists)
                 return BadRequest("رقم الجوال هذا مسجل مسبقاً لمستخدم آخر!");
 
+            if (!string.IsNullOrWhiteSpace(dto.Username) && user.UserName != dto.Username)
+            {
+                var userExists = await _userManager.FindByNameAsync(dto.Username);
+                if (userExists != null)
+                {
+                    return BadRequest("اسم المستخدم هذا مسجل مسبقاً لمستخدم آخر!");
+                }
+                user.UserName = dto.Username;
+                user.NormalizedUserName = dto.Username.ToUpper();
+            }
+
             user.Email = dto.Email;
+            user.NormalizedEmail = dto.Email.ToUpper();
             user.PhoneNumber = formattedPhone;
             user.NameAr = dto.NameAr;
             user.NameEn = dto.NameEn;

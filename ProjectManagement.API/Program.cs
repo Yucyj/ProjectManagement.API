@@ -124,4 +124,42 @@ app.UseStaticFiles();
 
 app.MapControllers();
 
+// Database Seeder to normalize existing users' active states, emails, names, and creation dates
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        var usersList = await context.Users.ToListAsync();
+        foreach (var u in usersList)
+        {
+            u.IsActive = true; // Force default active status
+            if (u.CreatedDate == default)
+            {
+                u.CreatedDate = new DateTime(2026, 1, 1);
+            }
+            if (string.IsNullOrEmpty(u.Email))
+            {
+                u.Email = $"{u.UserName?.ToLower()}@example.com";
+                u.NormalizedEmail = u.Email.ToUpper();
+            }
+            if (string.IsNullOrEmpty(u.NameEn))
+            {
+                u.NameEn = u.UserName;
+            }
+            if (string.IsNullOrEmpty(u.NameAr))
+            {
+                u.NameAr = u.UserName;
+            }
+        }
+        await context.SaveChangesAsync();
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred seeding the database.");
+    }
+}
+
 app.Run();
