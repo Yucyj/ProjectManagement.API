@@ -15,6 +15,7 @@ namespace ProjectManagement.API.Models
         public string? AboutAr { get; set; }
         public string? AboutEn { get; set; }
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+        public bool IsActive { get; set; } = true;
 
         // Navigation properties
         public ICollection<Portfolio> Portfolios { get; set; } = new List<Portfolio>();

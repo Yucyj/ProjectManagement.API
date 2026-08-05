@@ -235,27 +235,33 @@ namespace ProjectManagement.API.Controllers
 
         // 3. Get All Users: api/Auth/all-users
         [HttpGet("all-users")]
-        public async Task<IActionResult> GetAllUsers()
+        public async Task<ActionResult<IEnumerable<UserListItemDto>>> GetAllUsers()
         {
-            var users = await _userManager.Users
-                .Select(u => new
+            var usersList = await _userManager.Users.ToListAsync();
+            var result = new List<UserListItemDto>();
+
+            foreach (var u in usersList)
+            {
+                var roles = await _userManager.GetRolesAsync(u);
+                var roleName = roles.FirstOrDefault() ?? "Member";
+
+                result.Add(new UserListItemDto
                 {
-                    u.Id,
-                    UserName = u.UserName,
-                    PhoneNumber = u.PhoneNumber,
+                    Id = u.Id,
+                    UserName = u.UserName ?? string.Empty,
+                    Email = u.Email ?? string.Empty,
+                    PhoneNumber = u.PhoneNumber ?? string.Empty,
+                    Role = roleName,
                     NameAr = u.NameAr,
                     NameEn = u.NameEn,
-                    ProfilePhoto = u.ProfilePhoto,
                     TitleAr = u.TitleAr,
                     TitleEn = u.TitleEn,
-                    Role = _context.UserRoles
-                        .Where(ur => ur.UserId == u.Id)
-                        .Join(_context.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => r.Name)
-                        .FirstOrDefault() ?? "Member"
-                })
-                .ToListAsync();
+                    CreatedDate = u.CreatedDate,
+                    IsActive = u.IsActive
+                });
+            }
 
-            return Ok(users);
+            return Ok(result);
         }
 
         // 4. Change Password: api/Auth/change-password
@@ -439,6 +445,271 @@ namespace ProjectManagement.API.Controllers
                 return BadRequest(result.Errors);
             }
             return Ok(new { Message = "تم حذف المستخدم بنجاح!" });
+        }
+
+        // 11. Create User: api/Auth/create-user
+        [HttpPost("create-user")]
+        public async Task<IActionResult> CreateUser([FromBody] CreateUserDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var formattedPhone = NormalizeAndValidateSaudiPhone(dto.PhoneNumber);
+            if (formattedPhone == null)
+            {
+                return BadRequest("رقم الجوال غير صحيح! يجب أن يكون رقم جوال سعودي يبدأ بـ 5 أو 05 أو +966.");
+            }
+
+            var phoneExists = await _userManager.Users.AnyAsync(u => u.PhoneNumber == formattedPhone);
+            if (phoneExists)
+                return BadRequest("رقم الجوال هذا مسجل مسبقاً!");
+
+            var userExists = await _userManager.FindByNameAsync(dto.Username);
+            if (userExists != null)
+                return BadRequest("اسم المستخدم هذا مسجل مسبقاً!");
+
+            var user = new ApplicationUser
+            {
+                UserName = dto.Username,
+                Email = dto.Email,
+                PhoneNumber = formattedPhone,
+                NameAr = dto.NameAr,
+                NameEn = dto.NameEn,
+                TitleAr = dto.TitleAr,
+                TitleEn = dto.TitleEn,
+                IsActive = dto.IsActive,
+                CreatedDate = DateTime.UtcNow,
+                EmailConfirmed = true
+            };
+
+            var result = await _userManager.CreateAsync(user, dto.Password);
+            if (!result.Succeeded)
+            {
+                return BadRequest(result.Errors);
+            }
+
+            // Assign role
+            var roleExists = await _roleManager.RoleExistsAsync(dto.Role);
+            if (!roleExists)
+            {
+                await _roleManager.CreateAsync(new IdentityRole(dto.Role));
+            }
+            await _userManager.AddToRoleAsync(user, dto.Role);
+
+            // Handle association if provided (OwnerId for Portfolio, ManagerId for Program/Project)
+            if (dto.PortfolioId.HasValue)
+            {
+                var portfolio = await _context.Portfolios.FindAsync(dto.PortfolioId.Value);
+                if (portfolio != null)
+                {
+                    portfolio.OwnerId = user.Id;
+                    _context.Entry(portfolio).State = EntityState.Modified;
+                }
+            }
+
+            if (dto.ProgramId.HasValue)
+            {
+                var program = await _context.Programs.FindAsync(dto.ProgramId.Value);
+                if (program != null)
+                {
+                    program.ManagerId = user.Id;
+                    _context.Entry(program).State = EntityState.Modified;
+                }
+            }
+
+            if (dto.ProjectId.HasValue)
+            {
+                var project = await _context.Projects.FindAsync(dto.ProjectId.Value);
+                if (project != null)
+                {
+                    project.ManagerId = user.Id;
+                    _context.Entry(project).State = EntityState.Modified;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "تم إنشاء المستخدم بنجاح!", UserId = user.Id });
+        }
+
+        // 12. Update User: api/Auth/update-user/{userId}
+        [HttpPut("update-user/{userId}")]
+        public async Task<IActionResult> UpdateUser(string userId, [FromBody] UpdateUserDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return NotFound("المستخدم غير موجود!");
+            }
+
+            var formattedPhone = NormalizeAndValidateSaudiPhone(dto.PhoneNumber);
+            if (formattedPhone == null)
+            {
+                return BadRequest("رقم الجوال غير صحيح!");
+            }
+
+            // Verify phone unique
+            var phoneExists = await _userManager.Users.AnyAsync(u => u.PhoneNumber == formattedPhone && u.Id != userId);
+            if (phoneExists)
+                return BadRequest("رقم الجوال هذا مسجل مسبقاً لمستخدم آخر!");
+
+            user.Email = dto.Email;
+            user.PhoneNumber = formattedPhone;
+            user.NameAr = dto.NameAr;
+            user.NameEn = dto.NameEn;
+            user.TitleAr = dto.TitleAr;
+            user.TitleEn = dto.TitleEn;
+            user.IsActive = dto.IsActive;
+
+            // Optional password update
+            if (!string.IsNullOrWhiteSpace(dto.Password))
+            {
+                var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                var passResult = await _userManager.ResetPasswordAsync(user, token, dto.Password);
+                if (!passResult.Succeeded)
+                {
+                    return BadRequest(passResult.Errors);
+                }
+            }
+
+            var result = await _userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+            {
+                return BadRequest(result.Errors);
+            }
+
+            // Role updates
+            var currentRoles = await _userManager.GetRolesAsync(user);
+            await _userManager.RemoveFromRolesAsync(user, currentRoles);
+
+            var roleExists = await _roleManager.RoleExistsAsync(dto.Role);
+            if (!roleExists)
+            {
+                await _roleManager.CreateAsync(new IdentityRole(dto.Role));
+            }
+            await _userManager.AddToRoleAsync(user, dto.Role);
+
+            // Handle association updates if provided
+            if (dto.PortfolioId.HasValue)
+            {
+                var portfolio = await _context.Portfolios.FindAsync(dto.PortfolioId.Value);
+                if (portfolio != null)
+                {
+                    portfolio.OwnerId = user.Id;
+                    _context.Entry(portfolio).State = EntityState.Modified;
+                }
+            }
+
+            if (dto.ProgramId.HasValue)
+            {
+                var program = await _context.Programs.FindAsync(dto.ProgramId.Value);
+                if (program != null)
+                {
+                    program.ManagerId = user.Id;
+                    _context.Entry(program).State = EntityState.Modified;
+                }
+            }
+
+            if (dto.ProjectId.HasValue)
+            {
+                var project = await _context.Projects.FindAsync(dto.ProjectId.Value);
+                if (project != null)
+                {
+                    project.ManagerId = user.Id;
+                    _context.Entry(project).State = EntityState.Modified;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "تم تحديث بيانات المستخدم بنجاح!" });
+        }
+
+        // 13. User Profile Details: api/Auth/user-profile/{id}
+        [HttpGet("user-profile/{id}")]
+        public async Task<ActionResult<UserProfileDto>> GetUserProfile(string id)
+        {
+            var u = await _userManager.FindByIdAsync(id);
+            if (u == null)
+            {
+                return NotFound("المستخدم غير موجود!");
+            }
+
+            var roles = await _userManager.GetRolesAsync(u);
+            var roleName = roles.FirstOrDefault() ?? "Member";
+
+            var dto = new UserProfileDto
+            {
+                Id = u.Id,
+                UserName = u.UserName ?? string.Empty,
+                Email = u.Email ?? string.Empty,
+                PhoneNumber = u.PhoneNumber ?? string.Empty,
+                Role = roleName,
+                NameAr = u.NameAr,
+                NameEn = u.NameEn,
+                TitleAr = u.TitleAr,
+                TitleEn = u.TitleEn,
+                CreatedDate = u.CreatedDate,
+                IsActive = u.IsActive
+            };
+
+            // 1. Portfolios owned by user
+            var portfolios = await _context.Portfolios
+                .Where(p => p.OwnerId == id)
+                .Select(p => new UserPortfolioDto
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Category = p.Category ?? "Execution",
+                    ProgramsCount = _context.Programs.Count(pr => pr.PortfolioId == p.Id),
+                    ProjectsCount = _context.Projects.Count(proj => proj.PortfolioId == p.Id),
+                    Progress = 0,
+                    Status = p.Status == 1 ? "Active" : p.Status == 2 ? "Completed" : p.Status == 3 ? "Pending" : "Rejected"
+                })
+                .ToListAsync();
+
+            dto.Portfolios = portfolios;
+
+            // 2. Programs managed by user
+            var programs = await _context.Programs
+                .Where(pr => pr.ManagerId == id)
+                .Select(pr => new UserProgramDto
+                {
+                    Id = pr.Id,
+                    Name = pr.Name,
+                    Category = "Execution",
+                    ProjectsCount = _context.Projects.Count(proj => proj.ProgramId == pr.Id),
+                    Progress = pr.ProgressPercentage,
+                    Status = pr.Status == 1 ? "Active" : pr.Status == 2 ? "Completed" : pr.Status == 3 ? "Pending" : "Rejected"
+                })
+                .ToListAsync();
+
+            dto.Programs = programs;
+
+            // 3. Projects managed by user
+            var projects = await _context.Projects
+                .Where(proj => proj.ManagerId == id)
+                .Select(proj => new UserProjectDto
+                {
+                    Id = proj.Id,
+                    Name = proj.Name,
+                    Category = "Execution",
+                    TasksCount = _context.Tasks.Count(t => t.ProjectId == proj.Id),
+                    Progress = 0, // mock project progress
+                    Status = proj.Status == 1 ? "Active" : proj.Status == 2 ? "Completed" : proj.Status == 3 ? "Pending" : "Rejected"
+                })
+                .ToListAsync();
+
+            dto.Projects = projects;
+
+            return Ok(dto);
         }
     }
 }
