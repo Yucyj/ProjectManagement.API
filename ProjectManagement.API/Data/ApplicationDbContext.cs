@@ -23,6 +23,7 @@ namespace ProjectManagement.API.Data
         public DbSet<Plan> Plans { get; set; }
         public DbSet<PlanMilestone> PlanMilestones { get; set; }
         public DbSet<PlanDeliverable> PlanDeliverables { get; set; }
+        public DbSet<Category> Categories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
