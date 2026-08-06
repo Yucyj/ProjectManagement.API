@@ -135,6 +135,7 @@ using (var scope = app.Services.CreateScope())
         foreach (var u in usersList)
         {
             u.IsActive = true; // Force default active status
+            u.PhoneNumberConfirmed = true; // Set PhoneNumberConfirmed to true to allow SMS OTP token verification
             if (u.CreatedDate == default)
             {
                 u.CreatedDate = new DateTime(2026, 1, 1);

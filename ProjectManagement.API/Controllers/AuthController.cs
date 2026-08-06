@@ -100,7 +100,8 @@ namespace ProjectManagement.API.Controllers
             var user = new ApplicationUser
             {
                 UserName = model.Username,
-                PhoneNumber = formattedPhone
+                PhoneNumber = formattedPhone,
+                PhoneNumberConfirmed = true
             };
 
             var result = await _userManager.CreateAsync(user, model.Password);
@@ -110,7 +111,15 @@ namespace ProjectManagement.API.Controllers
                 return BadRequest(result.Errors);
             }
 
-            return Ok("تم تسجيل الحساب بنجاح!");
+            var defaultRole = "Member";
+            var roleExists = await _roleManager.RoleExistsAsync(defaultRole);
+            if (!roleExists)
+            {
+                await _roleManager.CreateAsync(new IdentityRole(defaultRole));
+            }
+            await _userManager.AddToRoleAsync(user, defaultRole);
+
+            return Ok(new { message = "تم تسجيل الحساب بنجاح!" });
         }
 
         // 2. Login: api/Auth/login
@@ -280,14 +289,23 @@ namespace ProjectManagement.API.Controllers
                 return NotFound("المستخدم غير موجود!");
             }
 
-            var result = await _userManager.ChangePasswordAsync(user, model.CurrentPassword, model.NewPassword);
+            IdentityResult result;
+            var hasPassword = await _userManager.HasPasswordAsync(user);
+            if (hasPassword)
+            {
+                result = await _userManager.ChangePasswordAsync(user, model.CurrentPassword, model.NewPassword);
+            }
+            else
+            {
+                result = await _userManager.AddPasswordAsync(user, model.NewPassword);
+            }
 
             if (!result.Succeeded)
             {
                 return BadRequest(result.Errors);
             }
 
-            return Ok("تم تغيير الرقم السري بنجاح!");
+            return Ok(new { message = "تم تغيير الرقم السري بنجاح!" });
         }
 
         // 5. Forgot Password: api/Auth/forgot-password
@@ -339,15 +357,23 @@ namespace ProjectManagement.API.Controllers
                 return BadRequest(new[] { new { code = "InvalidToken", description = "رمز إعادة التعيين غير صحيح أو انتهت صلاحيته!" } });
             }
 
-            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var result = await _userManager.ResetPasswordAsync(user, resetToken, model.NewPassword);
+            var hasPassword = await _userManager.HasPasswordAsync(user);
+            if (hasPassword)
+            {
+                var removeResult = await _userManager.RemovePasswordAsync(user);
+                if (!removeResult.Succeeded)
+                {
+                    return BadRequest(removeResult.Errors);
+                }
+            }
 
+            var result = await _userManager.AddPasswordAsync(user, model.NewPassword);
             if (!result.Succeeded)
             {
                 return BadRequest(result.Errors);
             }
 
-            return Ok("تم إعادة تعيين كلمة المرور الجديدة بنجاح!");
+            return Ok(new { message = "تم إعادة تعيين كلمة المرور الجديدة بنجاح!" });
         }
 
         // 7. Create Role: api/Auth/create-role
@@ -475,6 +501,7 @@ namespace ProjectManagement.API.Controllers
                 UserName = dto.Username,
                 Email = dto.Email,
                 PhoneNumber = formattedPhone,
+                PhoneNumberConfirmed = true,
                 NameAr = dto.NameAr,
                 NameEn = dto.NameEn,
                 TitleAr = dto.TitleAr,
@@ -574,6 +601,7 @@ namespace ProjectManagement.API.Controllers
             user.Email = dto.Email;
             user.NormalizedEmail = dto.Email.ToUpper();
             user.PhoneNumber = formattedPhone;
+            user.PhoneNumberConfirmed = true;
             user.NameAr = dto.NameAr;
             user.NameEn = dto.NameEn;
             user.TitleAr = dto.TitleAr;
