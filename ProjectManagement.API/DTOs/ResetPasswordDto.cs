@@ -5,8 +5,8 @@ namespace ProjectManagement.API.DTOs
     public class ResetPasswordDto
     {
         [Required]
-        [Phone]
-        public string PhoneNumber { get; set; } = string.Empty;
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
 
         [Required]
         public string Token { get; set; } = string.Empty;

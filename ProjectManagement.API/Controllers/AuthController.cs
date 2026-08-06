@@ -77,6 +77,43 @@ namespace ProjectManagement.API.Controllers
             return null; // Invalid Saudi mobile format
         }
 
+        private async Task SendEmailAsync(string email, string subject, string body)
+        {
+            var smtpServer = _configuration["EmailSettings:SmtpServer"] ?? "smtp.gmail.com";
+            var portStr = _configuration["EmailSettings:Port"] ?? "587";
+            int.TryParse(portStr, out int port);
+            var senderEmail = _configuration["EmailSettings:SenderEmail"] ?? "your-gmail@gmail.com";
+            var senderName = _configuration["EmailSettings:SenderName"] ?? "ProSync Security";
+            var username = _configuration["EmailSettings:Username"] ?? "your-gmail@gmail.com";
+            var password = _configuration["EmailSettings:Password"] ?? "your-app-password";
+
+            // If SMTP credentials are defaults, don't attempt to connect to prevent timeouts
+            if (username == "your-gmail@gmail.com" || string.IsNullOrEmpty(password) || password == "your-app-password")
+            {
+                Console.WriteLine($"[SMTP NOT CONFIG]: Skip sending email to {email}. Subject: {subject}. Body: {body}");
+                return;
+            }
+
+            using (var client = new System.Net.Mail.SmtpClient(smtpServer, port))
+            {
+                client.Credentials = new System.Net.NetworkCredential(username, password);
+                client.EnableSsl = true;
+
+                var mailMessage = new System.Net.Mail.MailMessage
+                {
+                    From = new System.Net.Mail.MailAddress(senderEmail, senderName),
+                    Subject = subject,
+                    Body = body,
+                    IsBodyHtml = true
+                };
+
+                mailMessage.To.Add(email);
+
+                await client.SendMailAsync(mailMessage);
+                Console.WriteLine($"[EMAIL SENT]: Successfully sent OTP email to {email}");
+            }
+        }
+
         // 1. Register: api/Auth/register
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto model)
@@ -101,7 +138,10 @@ namespace ProjectManagement.API.Controllers
             {
                 UserName = model.Username,
                 PhoneNumber = formattedPhone,
-                PhoneNumberConfirmed = true
+                PhoneNumberConfirmed = true,
+                Email = $"{model.Username.ToLower()}@example.com",
+                NormalizedEmail = model.Username.ToUpper() + "@EXAMPLE.COM",
+                EmailConfirmed = true
             };
 
             var result = await _userManager.CreateAsync(user, model.Password);
@@ -219,6 +259,7 @@ namespace ProjectManagement.API.Controllers
                 userId = user.Id,
                 username = user.UserName,
                 phoneNumber = user.PhoneNumber,
+                email = user.Email,
                 token = tokenValue,
                 expiration,
 
@@ -227,6 +268,7 @@ namespace ProjectManagement.API.Controllers
                     id = user.Id,
                     username = user.UserName,
                     phoneNumber = user.PhoneNumber,
+                    email = user.Email,
                     nameEn = user.NameEn,
                     nameAr = user.NameAr,
                     titleEn = user.TitleEn,
@@ -274,16 +316,16 @@ namespace ProjectManagement.API.Controllers
         }
 
         // 4. Change Password: api/Auth/change-password
+        // 4. Change Password: api/Auth/change-password
         [HttpPost("change-password")]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto model)
         {
-            var formattedPhone = NormalizeAndValidateSaudiPhone(model.PhoneNumber);
-            if (formattedPhone == null)
+            if (string.IsNullOrWhiteSpace(model.Email))
             {
-                return BadRequest("رقم الجوال غير صحيح!");
+                return BadRequest("البريد الإلكتروني مطلوب!");
             }
 
-            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == formattedPhone);
+            var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null)
             {
                 return NotFound("المستخدم غير موجود!");
@@ -312,24 +354,47 @@ namespace ProjectManagement.API.Controllers
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto model)
         {
-            var formattedPhone = NormalizeAndValidateSaudiPhone(model.PhoneNumber);
-            if (formattedPhone == null)
+            if (string.IsNullOrWhiteSpace(model.Email))
             {
-                return BadRequest("رقم الجوال غير صحيح!");
+                return BadRequest("البريد الإلكتروني مطلوب!");
             }
 
-            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == formattedPhone);
+            var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null)
             {
                 return NotFound("المستخدم غير موجود!");
             }
 
-            // Generate an OTP token using the Phone token provider
-            var token = await _userManager.GenerateUserTokenAsync(user, "Phone", "ResetPassword");
+            // Generate an OTP token using the Email token provider
+            var token = await _userManager.GenerateUserTokenAsync(user, "Email", "ResetPassword");
+
+            // Try sending the OTP email
+            try
+            {
+                var subject = "رمز التحقق لإعادة تعيين كلمة المرور - ProSync";
+                var body = $@"
+                    <div style='font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;'>
+                        <h2 style='color: #007bff;'>مرحباً {user.UserName}،</h2>
+                        <p style='font-size: 1.1rem; color: #4a5568;'>لقد تلقينا طلباً لإعادة تعيين كلمة المرور الخاصة بك على منصة ProSync.</p>
+                        <p style='font-size: 1.1rem; color: #4a5568;'>رمز التحقق (OTP) الخاص بك هو:</p>
+                        <div style='background: #f7fafc; padding: 15px; border-radius: 8px; text-align: center; font-size: 1.8rem; font-weight: bold; letter-spacing: 4px; color: #1a2b4c; margin: 20px 0;'>
+                            {token}
+                        </div>
+                        <p style='font-size: 0.95rem; color: #718096;'>هذا الرمز صالحة لمدة محدودة. إذا لم تقم بطلب إعادة التعيين بنفسك، يرجى تجاهل هذا البريد الإلكتروني.</p>
+                        <hr style='border: none; border-top: 1px solid #edf2f7; margin: 20px 0;' />
+                        <p style='font-size: 0.85rem; color: #a0aec0; text-align: center;'>فريق حماية ProSync Security</p>
+                    </div>";
+
+                await SendEmailAsync(user.Email!, subject, body);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[EMAIL SEND FAILURE]: {ex.Message}");
+            }
 
             return Ok(new
             {
-                Message = "تم توليد رمز إعادة تعيين كلمة المرور بنجاح وارتباطه برقم الجوال!",
+                Message = "تم توليد رمز إعادة تعيين كلمة المرور بنجاح وارتباطه بالبريد الإلكتروني!",
                 Token = token
             });
         }
@@ -338,20 +403,19 @@ namespace ProjectManagement.API.Controllers
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto model)
         {
-            var formattedPhone = NormalizeAndValidateSaudiPhone(model.PhoneNumber);
-            if (formattedPhone == null)
+            if (string.IsNullOrWhiteSpace(model.Email))
             {
-                return BadRequest("رقم الجوال غير صحيح!");
+                return BadRequest("البريد الإلكتروني مطلوب!");
             }
 
-            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == formattedPhone);
+            var user = await _userManager.FindByEmailAsync(model.Email);
             if (user == null)
             {
                 return NotFound("المستخدم غير موجود!");
             }
 
-            // Verify the token using the Phone token provider
-            var isValid = await _userManager.VerifyUserTokenAsync(user, "Phone", "ResetPassword", model.Token);
+            // Verify the token using the Email token provider
+            var isValid = await _userManager.VerifyUserTokenAsync(user, "Email", "ResetPassword", model.Token);
             if (!isValid)
             {
                 return BadRequest(new[] { new { code = "InvalidToken", description = "رمز إعادة التعيين غير صحيح أو انتهت صلاحيته!" } });

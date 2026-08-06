@@ -5,8 +5,8 @@ namespace ProjectManagement.API.DTOs
     public class ChangePasswordDto
     {
         [Required]
-        [Phone]
-        public string PhoneNumber { get; set; } = string.Empty;
+        [EmailAddress]
+        public string Email { get; set; } = string.Empty;
 
         [Required]
         public string CurrentPassword { get; set; } = string.Empty;
