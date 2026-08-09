@@ -161,17 +161,32 @@ namespace ProjectManagement.API.Controllers
                 {
                     if (string.IsNullOrEmpty(name)) return null;
                     var normalized = name.Trim().ToLower();
-                    return users.FirstOrDefault(u => 
+                    Console.WriteLine($"[DIAGNOSTIC]: Searching for user match with input: '{name}' (normalized: '{normalized}')");
+                    var matched = users.FirstOrDefault(u => 
                         (u.NameAr != null && u.NameAr.Trim().ToLower() == normalized) ||
                         (u.NameEn != null && u.NameEn.Trim().ToLower() == normalized) ||
                         (u.UserName != null && u.UserName.Trim().ToLower() == normalized) ||
-                        (u.Email != null && u.Email.Trim().ToLower() == normalized)
+                        (u.Email != null && u.Email.Trim().ToLower() == normalized) ||
+                        (u.Id != null && u.Id.Trim().ToLower() == normalized)
                     );
+                    if (matched != null)
+                    {
+                        Console.WriteLine($"[DIAGNOSTIC]: Found match! User ID: '{matched.Id}', UserName: '{matched.UserName}', Email: '{matched.Email}'");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[DIAGNOSTIC]: No match found for input '{name}' in database users list.");
+                    }
+                    return matched;
                 };
 
                 var owner = findUser(portfolio.OwnerName);
                 var manager = findUser(portfolio.ManagerName);
                 var sponsor = findUser(portfolio.SponsorName);
+
+                Console.WriteLine($"[DIAGNOSTIC]: Owner search result is null: {owner == null}");
+                Console.WriteLine($"[DIAGNOSTIC]: Manager search result is null: {manager == null}");
+                Console.WriteLine($"[DIAGNOSTIC]: Sponsor search result is null: {sponsor == null}");
 
                 var frontendBase = _configuration["FrontendUrl"]?.TrimEnd('/') ?? "http://localhost:4200";
                 var portfolioDetailsUrl = $"{frontendBase}/portfolios/details/{portfolio.Id}";
