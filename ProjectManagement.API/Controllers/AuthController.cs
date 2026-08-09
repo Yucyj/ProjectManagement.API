@@ -394,9 +394,32 @@ namespace ProjectManagement.API.Controllers
 
             return Ok(new
             {
-                Message = "تم توليد رمز إعادة تعيين كلمة المرور بنجاح وارتباطه بالبريد الإلكتروني!",
-                Token = token
+                Message = "تم توليد رمز إعادة تعيين كلمة المرور بنجاح وإرساله للبريد الإلكتروني!"
             });
+        }
+
+        // 5.5. Verify OTP: api/Auth/verify-otp
+        [HttpPost("verify-otp")]
+        public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpDto model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user == null)
+            {
+                return NotFound("المستخدم غير موجود!");
+            }
+
+            var isValid = await _userManager.VerifyUserTokenAsync(user, "Email", "ResetPassword", model.Token);
+            if (!isValid)
+            {
+                return BadRequest("رمز التحقق غير صحيح!");
+            }
+
+            return Ok(new { success = true, message = "رمز التحقق صحيح!" });
         }
 
         // 6. Reset Password: api/Auth/reset-password
