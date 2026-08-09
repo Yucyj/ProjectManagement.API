@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ProjectManagement.API.Data;
@@ -174,6 +174,51 @@ namespace ProjectManagement.API.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Program deleted successfully." });
+        }
+
+        [HttpPost("upload")]
+        public async Task<IActionResult> UploadFiles(List<IFormFile> files)
+        {
+            if (files == null || files.Count == 0)
+            {
+                return BadRequest("No files uploaded.");
+            }
+
+            var uploadedFilesList = new List<object>();
+            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            foreach (var file in files)
+            {
+                if (file.Length > 0)
+                {
+                    var originalName = file.FileName;
+                    var uniqueName = Guid.NewGuid().ToString() + Path.GetExtension(originalName);
+                    var filePath = Path.Combine(uploadsFolder, uniqueName);
+
+                    using (var stream = new FileStream(filePath, FileMode.Create))
+                    {
+                        await file.CopyToAsync(stream);
+                    }
+
+                    var sizeInMb = (file.Length / (1024.0 * 1024.0)).ToString("F1") + " MB";
+                    var ext = Path.GetExtension(originalName).TrimStart('.').ToLower();
+
+                    uploadedFilesList.Add(new
+                    {
+                        name = originalName,
+                        path = "/uploads/" + uniqueName,
+                        size = sizeInMb,
+                        type = ext
+                    });
+                }
+            }
+
+            return Ok(uploadedFilesList);
         }
     }
 }

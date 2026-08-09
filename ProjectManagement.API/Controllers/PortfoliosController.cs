@@ -69,6 +69,7 @@ namespace ProjectManagement.API.Controllers
                     CreatedDate = p.CreatedDate,
                     OwnerName = !string.IsNullOrEmpty(p.OwnerName) ? p.OwnerName
                                 : (p.Owner != null ? p.Owner.UserName : null),
+                    OwnerId = p.OwnerId,
                     AttachedFiles = p.AttachedFiles,
                     ProgramsCount = p.Programs.Count,
                     ProjectsCount = p.Projects.Count
@@ -105,6 +106,7 @@ namespace ProjectManagement.API.Controllers
                 CreatedDate = portfolio.CreatedDate,
                 OwnerName = !string.IsNullOrEmpty(portfolio.OwnerName) ? portfolio.OwnerName
                             : portfolio.Owner?.UserName,
+                OwnerId = portfolio.OwnerId,
                 AttachedFiles = portfolio.AttachedFiles,
                 ProgramsCount = portfolio.Programs.Count,
                 ProjectsCount = portfolio.Projects.Count
