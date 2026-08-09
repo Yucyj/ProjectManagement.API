@@ -16,6 +16,9 @@ namespace ProjectManagement.API.Models
         public string? AboutEn { get; set; }
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
         public bool IsActive { get; set; } = true;
+        public bool IsTwoFactorEnabled { get; set; } = false;
+        public string? TwoFactorCode { get; set; }
+        public DateTime? TwoFactorCodeExpiry { get; set; }
 
         // Navigation properties
         public ICollection<Portfolio> Portfolios { get; set; } = new List<Portfolio>();
