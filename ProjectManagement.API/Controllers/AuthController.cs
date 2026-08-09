@@ -139,8 +139,8 @@ namespace ProjectManagement.API.Controllers
                 UserName = model.Username,
                 PhoneNumber = formattedPhone,
                 PhoneNumberConfirmed = true,
-                Email = $"{model.Username.ToLower()}@example.com",
-                NormalizedEmail = model.Username.ToUpper() + "@EXAMPLE.COM",
+                Email = model.Email, 
+                NormalizedEmail = model.Email?.ToUpper() ?? string.Empty,
                 EmailConfirmed = true
             };
 
@@ -163,95 +163,90 @@ namespace ProjectManagement.API.Controllers
         }
 
         // 2. Login: api/Auth/login
-    
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto model)
         {
-            var formattedPhone =
-                NormalizeAndValidateSaudiPhone(model.PhoneNumber);
-
+            var formattedPhone = NormalizeAndValidateSaudiPhone(model.PhoneNumber);
             if (formattedPhone == null)
             {
-                return BadRequest(
-                    "رقم الجوال غير صحيح! يجب أن يكون رقم جوال سعودي يبدأ بـ 5 أو 05 أو +966 ويحتوي على أرقام فقط.");
+                return BadRequest("رقم الجوال غير صحيح! يجب أن يكون رقم جوال سعودي يبدأ بـ 5 أو 05 أو +966.");
             }
 
-            var user = await _userManager.Users
-                .FirstOrDefaultAsync(u => u.PhoneNumber == formattedPhone);
-
-            if (user == null ||
-                !await _userManager.CheckPasswordAsync(user, model.Password))
+            var user = await _userManager.Users.FirstOrDefaultAsync(u => u.PhoneNumber == formattedPhone);
+            if (user == null || !await _userManager.CheckPasswordAsync(user, model.Password))
             {
-                return Unauthorized(
-                    "رقم الجوال أو الرقم السري غير صحيح!");
+                return Unauthorized("رقم الجوال أو الرقم السري غير صحيح!");
             }
 
-            var roles = await _userManager.GetRolesAsync(user);
+            // إذا كان المستخدم مفعلًا للـ 2FA، نقوم بتوليد وإرسال الرمز عبر الإيميل
+            if (user.IsTwoFactorEnabled)
+            {
+                var randomCode = new Random().Next(100000, 999999).ToString();
+                user.TwoFactorCode = randomCode;
+                user.TwoFactorCodeExpiry = DateTime.UtcNow.AddMinutes(5); // صالح لمدة 5 دقائق
+                await _userManager.UpdateAsync(user);
 
+                // إرسال الكود الحقيقي عبر الإيميل
+                if (!string.IsNullOrEmpty(user.Email))
+                {
+                    try
+                    {
+                        var subject = "رمز التحقق الثنائي لتسجيل الدخول - ProSync";
+                        var body = $@"
+                    <div style='font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;'>
+                        <h2 style='color: #007bff;'>مرحباً {user.UserName}،</h2>
+                        <p style='font-size: 1.1rem; color: #4a5568;'>تلقينا محاولة تسجيل دخول إلى حسابك على منصة ProSync.</p>
+                        <p style='font-size: 1.1rem; color: #4a5568;'>رمز التحقق (OTP) الخاص بك هو:</p>
+                        <div style='background: #f7fafc; padding: 15px; border-radius: 8px; text-align: center; font-size: 1.8rem; font-weight: bold; letter-spacing: 4px; color: #1a2b4c; margin: 20px 0;'>
+                            {randomCode}
+                        </div>
+                        <p style='font-size: 0.95rem; color: #718096;'>هذا الرمز صالح لمدة 5 دقائق فقط. إذا لم تقم بهذا الطلب، يرجى تجاهل هذه الرسالة.</p>
+                    </div>";
+
+                        await SendEmailAsync(user.Email, subject, body);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[2FA EMAIL ERROR]: {ex.Message}");
+                    }
+                }
+
+                return Ok(new
+                {
+                    requiresTwoFactor = true,
+                    userId = user.Id,
+                    message = "تم إرسال رمز التحقق إلى بريدك الإلكتروني بنجاح!"
+                });
+            }
+
+            // إذا لم يكن مفعلًا للـ 2FA، يتم إصدار الـ JWT Token النهائي مباشرة
+            var roles = await _userManager.GetRolesAsync(user);
             var authClaims = new List<Claim>
     {
-        new Claim(
-            ClaimTypes.NameIdentifier,
-            user.Id),
-
-        new Claim(
-            ClaimTypes.Name,
-            user.UserName ?? string.Empty),
-
-        new Claim(
-            ClaimTypes.MobilePhone,
-            user.PhoneNumber ?? string.Empty),
-
-        new Claim(
-            JwtRegisteredClaimNames.Jti,
-            Guid.NewGuid().ToString())
+        new Claim(ClaimTypes.NameIdentifier, user.Id),
+        new Claim(ClaimTypes.Name, user.UserName ?? string.Empty),
+        new Claim(ClaimTypes.MobilePhone, user.PhoneNumber ?? string.Empty),
+        new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
     };
 
             foreach (var role in roles)
             {
-                authClaims.Add(
-                    new Claim(ClaimTypes.Role, role));
+                authClaims.Add(new Claim(ClaimTypes.Role, role));
             }
 
-            // قراءة إعدادات JWT من appsettings.json
-            var jwtKey = _configuration["Jwt:Key"];
-            var jwtIssuer = _configuration["Jwt:Issuer"];
-            var jwtAudience = _configuration["Jwt:Audience"];
-
-            var expiryHours =
-                _configuration.GetValue<int?>("Jwt:ExpiryHours") ?? 3;
-
-            if (string.IsNullOrWhiteSpace(jwtKey) ||
-                string.IsNullOrWhiteSpace(jwtIssuer) ||
-                string.IsNullOrWhiteSpace(jwtAudience))
-            {
-                return StatusCode(
-                    StatusCodes.Status500InternalServerError,
-                    new
-                    {
-                        message = "JWT settings are missing in appsettings.json."
-                    });
-            }
-
-            var signingKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwtKey));
-
-            var expiration =
-                DateTime.UtcNow.AddHours(expiryHours);
+            var jwtKey = _configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is missing.");
+            var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+            var expiration = DateTime.UtcNow.AddHours(_configuration.GetValue<int?>("Jwt:ExpiryHours") ?? 600);
 
             var token = new JwtSecurityToken(
-                issuer: jwtIssuer,
-                audience: jwtAudience,
+                issuer: _configuration["Jwt:Issuer"],
+                audience: _configuration["Jwt:Audience"],
                 claims: authClaims,
-                notBefore: DateTime.UtcNow,
                 expires: expiration,
-                signingCredentials: new SigningCredentials(
-                    signingKey,
-                    SecurityAlgorithms.HmacSha256)
+                signingCredentials: new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256)
             );
 
-            var tokenValue =
-                new JwtSecurityTokenHandler().WriteToken(token);
+            var tokenValue = new JwtSecurityTokenHandler().WriteToken(token);
 
             return Ok(new
             {
@@ -262,28 +257,108 @@ namespace ProjectManagement.API.Controllers
                 email = user.Email,
                 token = tokenValue,
                 expiration,
-
                 user = new
                 {
                     id = user.Id,
                     username = user.UserName,
                     phoneNumber = user.PhoneNumber,
                     email = user.Email,
-                    nameEn = user.NameEn,
-                    nameAr = user.NameAr,
-                    titleEn = user.TitleEn,
-                    titleAr = user.TitleAr,
-                    companyEn = user.CompanyEn,
-                    companyAr = user.CompanyAr,
-                    profilePhoto = user.ProfilePhoto,
-                    backgroundPhoto = user.BackgroundPhoto,
-                    aboutAr = user.AboutAr,
-                    aboutEn = user.AboutEn,
                     roles
                 }
             });
         }
+        // 2.5. Verify Login 2FA: api/Auth/verify-login-2fa
+        [HttpPost("verify-login-2fa")]
+        public async Task<IActionResult> VerifyLogin2Fa([FromBody] VerifyLoginTwoFactorDto model)
+        {
+            // ملاحظة: تأكدي أن الـ DTO هنا يستقبل (UserId و Code) أو (Email و Code) بناءً على ما ترسلينه من الفرونتاند.
+            var user = await _userManager.FindByIdAsync(model.UserId);
+            if (user == null)
+            {
+                return Unauthorized("بيانات غير صالحة!");
+            }
 
+            if (string.IsNullOrEmpty(user.TwoFactorCode) ||
+                user.TwoFactorCode != model.Code ||
+                user.TwoFactorCodeExpiry == null ||
+                user.TwoFactorCodeExpiry < DateTime.UtcNow)
+            {
+                return BadRequest("رمز التحقق غير صحيح أو انتهت صلاحيته!");
+            }
+
+            // مسح الرمز بعد استخدامه بنجاح لضمان الأمان
+            user.TwoFactorCode = null;
+            user.TwoFactorCodeExpiry = null;
+            await _userManager.UpdateAsync(user);
+
+            // إصدار الـ JWT Token النهائي للمستخدم
+            var roles = await _userManager.GetRolesAsync(user);
+            var authClaims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id),
+                new Claim(ClaimTypes.Name, user.UserName ?? string.Empty),
+                new Claim(ClaimTypes.MobilePhone, user.PhoneNumber ?? string.Empty),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            foreach (var role in roles)
+            {
+                authClaims.Add(new Claim(ClaimTypes.Role, role));
+            }
+
+            var jwtKey = _configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key is missing.");
+            var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+            var expiration = DateTime.UtcNow.AddHours(_configuration.GetValue<int?>("Jwt:ExpiryHours") ?? 600);
+
+            var token = new JwtSecurityToken(
+                issuer: _configuration["Jwt:Issuer"],
+                audience: _configuration["Jwt:Audience"],
+                claims: authClaims,
+                expires: expiration,
+                signingCredentials: new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256)
+            );
+
+            var tokenValue = new JwtSecurityTokenHandler().WriteToken(token);
+
+            return Ok(new
+            {
+                id = user.Id,
+                userId = user.Id,
+                username = user.UserName,
+                email = user.Email,
+                phoneNumber = user.PhoneNumber,
+                token = tokenValue,
+                expiration,
+                user = new
+                {
+                    id = user.Id,
+                    username = user.UserName,
+                    email = user.Email,
+                    phoneNumber = user.PhoneNumber,
+                    roles
+                }
+            });
+        }
+        // 14. Toggle 2FA status: api/Auth/toggle-2fa
+        [HttpPost("toggle-2fa")]
+        public async Task<IActionResult> ToggleTwoFactor([FromBody] ToggleTwoFactorDto model)
+        {
+            var user = await _userManager.FindByIdAsync(model.UserId);
+            if (user == null)
+            {
+                return NotFound("المستخدم غير موجود!");
+            }
+
+            user.IsTwoFactorEnabled = model.Enable;
+            var result = await _userManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                return BadRequest(result.Errors);
+            }
+
+            return Ok(new { message = model.Enable ? "تم تفعيل التحقق بخطوتين بنجاح!" : "تم تعطيل التحقق بخطوتين بنجاح!" });
+        }
         // 3. Get All Users: api/Auth/all-users
         [HttpGet("all-users")]
         public async Task<ActionResult<IEnumerable<UserListItemDto>>> GetAllUsers()
