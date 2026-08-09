@@ -172,7 +172,7 @@ namespace ProjectManagement.API.Controllers
                         <p style='font-size: 0.95rem; color: #718096;'>هذا الرمز صالح لمدة 5 دقائق فقط. إذا لم تقم بهذا الطلب، يرجى تجاهل هذه الرسالة.</p>
                     </div>";
 
-                        await SendEmailAsync(user.Email, subject, body);
+                        await _emailService.SendEmailAsync(user.Email, subject, body);
                     }
                     catch (Exception ex)
                     {
