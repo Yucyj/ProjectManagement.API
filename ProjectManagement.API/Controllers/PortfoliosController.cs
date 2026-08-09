@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ProjectManagement.API.Data;
 using ProjectManagement.API.DTOs;
 using ProjectManagement.API.Models;
+using ProjectManagement.API.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,10 +18,12 @@ namespace ProjectManagement.API.Controllers
     public class PortfoliosController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IEmailService _emailService;
 
-        public PortfoliosController(ApplicationDbContext context)
+        public PortfoliosController(ApplicationDbContext context, IEmailService emailService)
         {
             _context = context;
+            _emailService = emailService;
         }
 
         private int MapStatusStringToInt(string? statusStr)
@@ -147,6 +150,102 @@ namespace ProjectManagement.API.Controllers
 
             _context.Portfolios.Add(portfolio);
             await _context.SaveChangesAsync();
+
+            // إرسال تنبيهات البريد الإلكتروني للملاك والمدراء المعينين
+            try
+            {
+                var users = await _context.Users.ToListAsync();
+                Func<string, ApplicationUser?> findUser = (name) =>
+                {
+                    if (string.IsNullOrEmpty(name)) return null;
+                    var normalized = name.Trim().ToLower();
+                    return users.FirstOrDefault(u => 
+                        (u.NameAr != null && u.NameAr.Trim().ToLower() == normalized) ||
+                        (u.NameEn != null && u.NameEn.Trim().ToLower() == normalized) ||
+                        (u.UserName != null && u.UserName.Trim().ToLower() == normalized) ||
+                        (u.Email != null && u.Email.Trim().ToLower() == normalized)
+                    );
+                };
+
+                var owner = findUser(portfolio.OwnerName);
+                var manager = findUser(portfolio.ManagerName);
+                var sponsor = findUser(portfolio.SponsorName);
+
+                var portfolioDetailsUrl = $"https://pro-sync-k8hp9gwl4-1y.vercel.app/portfolios/details/{portfolio.Id}";
+
+                // 1. إرسال للمالك
+                if (owner != null && !string.IsNullOrEmpty(owner.Email))
+                {
+                    var subject = $"تم تعيينك كمالك لمحفظة جديدة: {portfolio.Name}";
+                    var body = $@"
+                        <div style='font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);'>
+                            <h2 style='color: #112b50;'>مرحباً {owner.UserName}،</h2>
+                            <p style='font-size: 1.1rem; color: #334155;'>لقد تم إنشاء محفظة جديدة وتعيينك كمالك لها.</p>
+                            <div style='background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e4e7eb;'>
+                                <strong>اسم المحفظة:</strong> {portfolio.Name}<br>
+                                <strong>ميزانية المحفظة:</strong> {portfolio.Budget:N2} ريال سعودي<br>
+                                <strong>التصنيف:</strong> {portfolio.Category}
+                            </div>
+                            <p style='font-size: 1rem; color: #475569;'>يرجى تسجيل الدخول إلى المنصة لمتابعة حالة المحفظة والبدء في إنشاء البرامج والمشاريع التابعة لها.</p>
+                            <div style='text-align: center; margin: 30px 0;'>
+                                <a href='{portfolioDetailsUrl}' style='display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 1rem;'>عرض تفاصيل المحفظة</a>
+                            </div>
+                            <hr style='border: none; border-top: 1px solid #edf2f7; margin: 20px 0;' />
+                            <p style='font-size: 0.85rem; color: #94a3b8; text-align: center;'>هذا البريد تم إرساله تلقائياً من نظام إدارة المشاريع ProSync</p>
+                        </div>";
+                    await _emailService.SendEmailAsync(owner.Email, subject, body);
+                }
+
+                // 2. إرسال للمدير
+                if (manager != null && !string.IsNullOrEmpty(manager.Email) && manager.Id != owner?.Id)
+                {
+                    var subject = $"تم تعيينك كمدير لمحفظة جديدة: {portfolio.Name}";
+                    var body = $@"
+                        <div style='font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);'>
+                            <h2 style='color: #112b50;'>مرحباً {manager.UserName}،</h2>
+                            <p style='font-size: 1.1rem; color: #334155;'>لقد تم إنشاء محفظة جديدة وتعيينك كمدير للمحفظة.</p>
+                            <div style='background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e4e7eb;'>
+                                <strong>اسم المحفظة:</strong> {portfolio.Name}<br>
+                                <strong>ميزانية المحفظة:</strong> {portfolio.Budget:N2} ريال سعودي<br>
+                                <strong>التصنيف:</strong> {portfolio.Category}
+                            </div>
+                            <p style='font-size: 1rem; color: #475569;'>يرجى تسجيل الدخول لمتابعة الخطة التشغيلية للمحفظة.</p>
+                            <div style='text-align: center; margin: 30px 0;'>
+                                <a href='{portfolioDetailsUrl}' style='display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 1rem;'>عرض تفاصيل المحفظة</a>
+                            </div>
+                            <hr style='border: none; border-top: 1px solid #edf2f7; margin: 20px 0;' />
+                            <p style='font-size: 0.85rem; color: #94a3b8; text-align: center;'>هذا البريد تم إرساله تلقائياً من نظام إدارة المشاريع ProSync</p>
+                        </div>";
+                    await _emailService.SendEmailAsync(manager.Email, subject, body);
+                }
+
+                // 3. إرسال للراعي
+                if (sponsor != null && !string.IsNullOrEmpty(sponsor.Email) && sponsor.Id != owner?.Id && sponsor.Id != manager?.Id)
+                {
+                    var subject = $"تم تعيينك كراعي لمحفظة جديدة: {portfolio.Name}";
+                    var body = $@"
+                        <div style='font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);'>
+                            <h2 style='color: #112b50;'>مرحباً {sponsor.UserName}،</h2>
+                            <p style='font-size: 1.1rem; color: #334155;'>لقد تم إنشاء محفظة جديدة وتعيينك كراعي رسمي لها.</p>
+                            <div style='background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e4e7eb;'>
+                                <strong>اسم المحفظة:</strong> {portfolio.Name}<br>
+                                <strong>ميزانية المحفظة:</strong> {portfolio.Budget:N2} ريال سعودي<br>
+                                <strong>التصنيف:</strong> {portfolio.Category}
+                            </div>
+                            <p style='font-size: 1rem; color: #475569;'>يرجى تسجيل الدخول لمتابعة التقارير التشغيلية للمحفظة.</p>
+                            <div style='text-align: center; margin: 30px 0;'>
+                                <a href='{portfolioDetailsUrl}' style='display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 1rem;'>عرض تفاصيل المحفظة</a>
+                            </div>
+                            <hr style='border: none; border-top: 1px solid #edf2f7; margin: 20px 0;' />
+                            <p style='font-size: 0.85rem; color: #94a3b8; text-align: center;'>هذا البريد تم إرساله تلقائياً من نظام إدارة المشاريع ProSync</p>
+                        </div>";
+                    await _emailService.SendEmailAsync(sponsor.Email, subject, body);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PORTFOLIO CREATION EMAIL ERROR]: Failed to dispatch emails. Error: {ex.Message}");
+            }
 
             var result = new PortfolioDetailsDto
             {

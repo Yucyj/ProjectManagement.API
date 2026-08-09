@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using ProjectManagement.API.Data;
 using ProjectManagement.API.DTOs;
 using ProjectManagement.API.Models;
+using ProjectManagement.API.Services;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -20,17 +21,20 @@ namespace ProjectManagement.API.Controllers
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly IEmailService _emailService;
 
         public AuthController(
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
             ApplicationDbContext context,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IEmailService emailService)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _context = context;
             _configuration = configuration;
+            _emailService = emailService;
         }
         // Helper: Validate and normalize Saudi mobile numbers to +9665xxxxxxxx
         private string? NormalizeAndValidateSaudiPhone(string phoneNumber)
@@ -77,42 +81,7 @@ namespace ProjectManagement.API.Controllers
             return null; // Invalid Saudi mobile format
         }
 
-        private async Task SendEmailAsync(string email, string subject, string body)
-        {
-            var smtpServer = _configuration["EmailSettings:SmtpServer"] ?? "smtp.gmail.com";
-            var portStr = _configuration["EmailSettings:Port"] ?? "587";
-            int.TryParse(portStr, out int port);
-            var senderEmail = _configuration["EmailSettings:SenderEmail"] ?? "your-gmail@gmail.com";
-            var senderName = _configuration["EmailSettings:SenderName"] ?? "ProSync Security";
-            var username = _configuration["EmailSettings:Username"] ?? "your-gmail@gmail.com";
-            var password = _configuration["EmailSettings:Password"] ?? "your-app-password";
 
-            // If SMTP credentials are defaults, don't attempt to connect to prevent timeouts
-            if (username == "your-gmail@gmail.com" || string.IsNullOrEmpty(password) || password == "your-app-password")
-            {
-                Console.WriteLine($"[SMTP NOT CONFIG]: Skip sending email to {email}. Subject: {subject}. Body: {body}");
-                return;
-            }
-
-            using (var client = new System.Net.Mail.SmtpClient(smtpServer, port))
-            {
-                client.Credentials = new System.Net.NetworkCredential(username, password);
-                client.EnableSsl = true;
-
-                var mailMessage = new System.Net.Mail.MailMessage
-                {
-                    From = new System.Net.Mail.MailAddress(senderEmail, senderName),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true
-                };
-
-                mailMessage.To.Add(email);
-
-                await client.SendMailAsync(mailMessage);
-                Console.WriteLine($"[EMAIL SENT]: Successfully sent OTP email to {email}");
-            }
-        }
 
         // 1. Register: api/Auth/register
         [HttpPost("register")]
@@ -385,7 +354,7 @@ namespace ProjectManagement.API.Controllers
                         <p style='font-size: 0.85rem; color: #a0aec0; text-align: center;'>فريق حماية ProSync Security</p>
                     </div>";
 
-                await SendEmailAsync(user.Email!, subject, body);
+                await _emailService.SendEmailAsync(user.Email!, subject, body);
             }
             catch (Exception ex)
             {

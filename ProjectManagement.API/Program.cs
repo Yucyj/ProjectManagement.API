@@ -5,11 +5,13 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using ProjectManagement.API.Data;
 using ProjectManagement.API.Models;
+using ProjectManagement.API.Services;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
