@@ -19,11 +19,13 @@ namespace ProjectManagement.API.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IEmailService _emailService;
+        private readonly IConfiguration _configuration;
 
-        public PortfoliosController(ApplicationDbContext context, IEmailService emailService)
+        public PortfoliosController(ApplicationDbContext context, IEmailService emailService, IConfiguration configuration)
         {
             _context = context;
             _emailService = emailService;
+            _configuration = configuration;
         }
 
         private int MapStatusStringToInt(string? statusStr)
@@ -171,7 +173,8 @@ namespace ProjectManagement.API.Controllers
                 var manager = findUser(portfolio.ManagerName);
                 var sponsor = findUser(portfolio.SponsorName);
 
-                var portfolioDetailsUrl = $"https://pro-sync-k8hp9gwl4-1y.vercel.app/portfolios/details/{portfolio.Id}";
+                var frontendBase = _configuration["FrontendUrl"]?.TrimEnd('/') ?? "http://localhost:4200";
+                var portfolioDetailsUrl = $"{frontendBase}/portfolios/details/{portfolio.Id}";
 
                 // 1. إرسال للمالك
                 if (owner != null && !string.IsNullOrEmpty(owner.Email))
