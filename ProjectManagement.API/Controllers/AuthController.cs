@@ -232,7 +232,8 @@ namespace ProjectManagement.API.Controllers
                     username = user.UserName,
                     phoneNumber = user.PhoneNumber,
                     email = user.Email,
-                    roles
+                    roles,
+                    isTwoFactorEnabled = user.IsTwoFactorEnabled
                 }
             });
         }
