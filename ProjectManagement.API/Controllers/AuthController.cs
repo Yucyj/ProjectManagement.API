@@ -329,6 +329,22 @@ namespace ProjectManagement.API.Controllers
 
             return Ok(new { message = model.Enable ? "تم تفعيل التحقق بخطوتين بنجاح!" : "تم تعطيل التحقق بخطوتين بنجاح!" });
         }
+        // GET: api/Auth/2fa-status/{userId}
+        [HttpGet("2fa-status/{userId}")]
+        public async Task<IActionResult> GetTwoFactorStatus(string userId)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return NotFound("المستخدم غير موجود!");
+            }
+
+            return Ok(new
+            {
+                userId = user.Id,
+                isTwoFactorEnabled = user.IsTwoFactorEnabled
+            });
+        }
         // 3. Get All Users: api/Auth/all-users
         [HttpGet("all-users")]
         public async Task<ActionResult<IEnumerable<UserListItemDto>>> GetAllUsers()
