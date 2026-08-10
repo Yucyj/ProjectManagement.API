@@ -52,6 +52,13 @@ namespace ProjectManagement.API.Controllers
             }
         }
 
+        [HttpGet("test-users-db")]
+        public async Task<IActionResult> TestUsersDb()
+        {
+            var users = await _context.Users.Select(u => new { u.Id, u.UserName, u.Email, u.NameAr, u.NameEn }).ToListAsync();
+            return Ok(users);
+        }
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<PortfolioDetailsDto>>> GetPortfolios()
         {
@@ -194,70 +201,94 @@ namespace ProjectManagement.API.Controllers
                 // 1. إرسال للمالك
                 if (owner != null && !string.IsNullOrEmpty(owner.Email))
                 {
-                    var subject = $"تم تعيينك كمالك لمحفظة جديدة: {portfolio.Name}";
-                    var body = $@"
-                        <div style='font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);'>
-                            <h2 style='color: #112b50;'>مرحباً {owner.UserName}،</h2>
-                            <p style='font-size: 1.1rem; color: #334155;'>لقد تم إنشاء محفظة جديدة وتعيينك كمالك لها.</p>
-                            <div style='background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e4e7eb;'>
-                                <strong>اسم المحفظة:</strong> {portfolio.Name}<br>
-                                <strong>ميزانية المحفظة:</strong> {portfolio.Budget:N2} ريال سعودي<br>
-                                <strong>التصنيف:</strong> {portfolio.Category}
-                            </div>
-                            <p style='font-size: 1rem; color: #475569;'>يرجى تسجيل الدخول إلى المنصة لمتابعة حالة المحفظة والبدء في إنشاء البرامج والمشاريع التابعة لها.</p>
-                            <div style='text-align: center; margin: 30px 0;'>
-                                <a href='{portfolioDetailsUrl}' style='display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 1rem;'>عرض تفاصيل المحفظة</a>
-                            </div>
-                            <hr style='border: none; border-top: 1px solid #edf2f7; margin: 20px 0;' />
-                            <p style='font-size: 0.85rem; color: #94a3b8; text-align: center;'>هذا البريد تم إرساله تلقائياً من نظام إدارة المشاريع ProSync</p>
-                        </div>";
-                    await _emailService.SendEmailAsync(owner.Email, subject, body);
+                    try
+                    {
+                        var subject = $"تم تعيينك كمالك لمحفظة جديدة: {portfolio.Name}";
+                        var body = $@"
+                            <div style='font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);'>
+                                <h2 style='color: #112b50;'>مرحباً {owner.UserName}،</h2>
+                                <p style='font-size: 1.1rem; color: #334155;'>لقد تم إنشاء محفظة جديدة وتعيينك كمالك لها.</p>
+                                <div style='background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e4e7eb;'>
+                                    <strong>اسم المحفظة:</strong> {portfolio.Name}<br>
+                                    <strong>ميزانية المحفظة:</strong> {portfolio.Budget:N2} ريال سعودي<br>
+                                    <strong>التصنيف:</strong> {portfolio.Category}
+                                </div>
+                                <p style='font-size: 1rem; color: #475569;'>يرجى تسجيل الدخول إلى المنصة لمتابعة حالة المحفظة والبدء في إنشاء البرامج والمشاريع التابعة لها.</p>
+                                <div style='text-align: center; margin: 30px 0;'>
+                                    <a href='{portfolioDetailsUrl}' style='display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 1rem;'>عرض تفاصيل المحفظة</a>
+                                </div>
+                                <hr style='border: none; border-top: 1px solid #edf2f7; margin: 20px 0;' />
+                                <p style='font-size: 0.85rem; color: #94a3b8; text-align: center;'>هذا البريد تم إرساله تلقائياً من نظام إدارة المشاريع ProSync</p>
+                            </div>";
+                        Console.WriteLine($"[DIAGNOSTIC]: Initiating SMTP send to Owner '{owner.Email}'");
+                        await _emailService.SendEmailAsync(owner.Email, subject, body);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[DIAGNOSTIC ERROR - OWNER EMAIL]: {ex.Message}");
+                    }
                 }
 
                 // 2. إرسال للمدير
                 if (manager != null && !string.IsNullOrEmpty(manager.Email) && manager.Id != owner?.Id)
                 {
-                    var subject = $"تم تعيينك كمدير لمحفظة جديدة: {portfolio.Name}";
-                    var body = $@"
-                        <div style='font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);'>
-                            <h2 style='color: #112b50;'>مرحباً {manager.UserName}،</h2>
-                            <p style='font-size: 1.1rem; color: #334155;'>لقد تم إنشاء محفظة جديدة وتعيينك كمدير للمحفظة.</p>
-                            <div style='background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e4e7eb;'>
-                                <strong>اسم المحفظة:</strong> {portfolio.Name}<br>
-                                <strong>ميزانية المحفظة:</strong> {portfolio.Budget:N2} ريال سعودي<br>
-                                <strong>التصنيف:</strong> {portfolio.Category}
-                            </div>
-                            <p style='font-size: 1rem; color: #475569;'>يرجى تسجيل الدخول لمتابعة الخطة التشغيلية للمحفظة.</p>
-                            <div style='text-align: center; margin: 30px 0;'>
-                                <a href='{portfolioDetailsUrl}' style='display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 1rem;'>عرض تفاصيل المحفظة</a>
-                            </div>
-                            <hr style='border: none; border-top: 1px solid #edf2f7; margin: 20px 0;' />
-                            <p style='font-size: 0.85rem; color: #94a3b8; text-align: center;'>هذا البريد تم إرساله تلقائياً من نظام إدارة المشاريع ProSync</p>
-                        </div>";
-                    await _emailService.SendEmailAsync(manager.Email, subject, body);
+                    try
+                    {
+                        var subject = $"تم تعيينك كمدير لمحفظة جديدة: {portfolio.Name}";
+                        var body = $@"
+                            <div style='font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);'>
+                                <h2 style='color: #112b50;'>مرحباً {manager.UserName}،</h2>
+                                <p style='font-size: 1.1rem; color: #334155;'>لقد تم إنشاء محفظة جديدة وتعيينك كمدير للمحفظة.</p>
+                                <div style='background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e4e7eb;'>
+                                    <strong>اسم المحفظة:</strong> {portfolio.Name}<br>
+                                    <strong>ميزانية المحفظة:</strong> {portfolio.Budget:N2} ريال سعودي<br>
+                                    <strong>التصنيف:</strong> {portfolio.Category}
+                                </div>
+                                <p style='font-size: 1rem; color: #475569;'>يرجى تسجيل الدخول لمتابعة الخطة التشغيلية للمحفظة.</p>
+                                <div style='text-align: center; margin: 30px 0;'>
+                                    <a href='{portfolioDetailsUrl}' style='display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 1rem;'>عرض تفاصيل المحفظة</a>
+                                </div>
+                                <hr style='border: none; border-top: 1px solid #edf2f7; margin: 20px 0;' />
+                                <p style='font-size: 0.85rem; color: #94a3b8; text-align: center;'>هذا البريد تم إرساله تلقائياً من نظام إدارة المشاريع ProSync</p>
+                            </div>";
+                        Console.WriteLine($"[DIAGNOSTIC]: Initiating SMTP send to Manager '{manager.Email}'");
+                        await _emailService.SendEmailAsync(manager.Email, subject, body);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[DIAGNOSTIC ERROR - MANAGER EMAIL]: {ex.Message}");
+                    }
                 }
 
                 // 3. إرسال للراعي
                 if (sponsor != null && !string.IsNullOrEmpty(sponsor.Email) && sponsor.Id != owner?.Id && sponsor.Id != manager?.Id)
                 {
-                    var subject = $"تم تعيينك كراعي لمحفظة جديدة: {portfolio.Name}";
-                    var body = $@"
-                        <div style='font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);'>
-                            <h2 style='color: #112b50;'>مرحباً {sponsor.UserName}،</h2>
-                            <p style='font-size: 1.1rem; color: #334155;'>لقد تم إنشاء محفظة جديدة وتعيينك كراعي رسمي لها.</p>
-                            <div style='background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e4e7eb;'>
-                                <strong>اسم المحفظة:</strong> {portfolio.Name}<br>
-                                <strong>ميزانية المحفظة:</strong> {portfolio.Budget:N2} ريال سعودي<br>
-                                <strong>التصنيف:</strong> {portfolio.Category}
-                            </div>
-                            <p style='font-size: 1rem; color: #475569;'>يرجى تسجيل الدخول لمتابعة التقارير التشغيلية للمحفظة.</p>
-                            <div style='text-align: center; margin: 30px 0;'>
-                                <a href='{portfolioDetailsUrl}' style='display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 1rem;'>عرض تفاصيل المحفظة</a>
-                            </div>
-                            <hr style='border: none; border-top: 1px solid #edf2f7; margin: 20px 0;' />
-                            <p style='font-size: 0.85rem; color: #94a3b8; text-align: center;'>هذا البريد تم إرساله تلقائياً من نظام إدارة المشاريع ProSync</p>
-                        </div>";
-                    await _emailService.SendEmailAsync(sponsor.Email, subject, body);
+                    try
+                    {
+                        var subject = $"تم تعيينك كراعي لمحفظة جديدة: {portfolio.Name}";
+                        var body = $@"
+                            <div style='font-family: Arial, sans-serif; direction: rtl; text-align: right; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);'>
+                                <h2 style='color: #112b50;'>مرحباً {sponsor.UserName}،</h2>
+                                <p style='font-size: 1.1rem; color: #334155;'>لقد تم إنشاء محفظة جديدة وتعيينك كراعي رسمي لها.</p>
+                                <div style='background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #e4e7eb;'>
+                                    <strong>اسم المحفظة:</strong> {portfolio.Name}<br>
+                                    <strong>ميزانية المحفظة:</strong> {portfolio.Budget:N2} ريال سعودي<br>
+                                    <strong>التصنيف:</strong> {portfolio.Category}
+                                </div>
+                                <p style='font-size: 1rem; color: #475569;'>يرجى تسجيل الدخول لمتابعة التقارير التشغيلية للمحفظة.</p>
+                                <div style='text-align: center; margin: 30px 0;'>
+                                    <a href='{portfolioDetailsUrl}' style='display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 1rem;'>عرض تفاصيل المحفظة</a>
+                                </div>
+                                <hr style='border: none; border-top: 1px solid #edf2f7; margin: 20px 0;' />
+                                <p style='font-size: 0.85rem; color: #94a3b8; text-align: center;'>هذا البريد تم إرساله تلقائياً من نظام إدارة المشاريع ProSync</p>
+                            </div>";
+                        Console.WriteLine($"[DIAGNOSTIC]: Initiating SMTP send to Sponsor '{sponsor.Email}'");
+                        await _emailService.SendEmailAsync(sponsor.Email, subject, body);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[DIAGNOSTIC ERROR - SPONSOR EMAIL]: {ex.Message}");
+                    }
                 }
             }
             catch (Exception ex)
