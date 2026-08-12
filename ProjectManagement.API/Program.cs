@@ -6,11 +6,13 @@ using Microsoft.OpenApi;
 using ProjectManagement.API.Data;
 using ProjectManagement.API.Models;
 using ProjectManagement.API.Services;
+using ProjectManagement.API.Hubs;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Database
@@ -62,6 +64,20 @@ builder.Services
                 Encoding.UTF8.GetBytes(jwtKey)),
 
             ClockSkew = TimeSpan.Zero
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chathub"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -125,6 +141,7 @@ app.UseAuthorization();
 app.UseStaticFiles();
 
 app.MapControllers();
+app.MapHub<ChatHub>("/chathub");
 
 // Database Seeder to normalize existing users' active states, emails, names, and creation dates
 using (var scope = app.Services.CreateScope())

@@ -24,6 +24,7 @@ namespace ProjectManagement.API.Data
         public DbSet<PlanMilestone> PlanMilestones { get; set; }
         public DbSet<PlanDeliverable> PlanDeliverables { get; set; }
         public DbSet<Category> Categories { get; set; }
+        public DbSet<ChatMessage> ChatMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -128,6 +129,18 @@ namespace ProjectManagement.API.Data
                 .WithMany()
                 .HasForeignKey(c => c.ChangeRequestId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ChatMessage>()
+                .HasOne(m => m.Sender)
+                .WithMany()
+                .HasForeignKey(m => m.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<ChatMessage>()
+                .HasOne(m => m.Receiver)
+                .WithMany()
+                .HasForeignKey(m => m.ReceiverId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
