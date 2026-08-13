@@ -105,5 +105,46 @@ namespace ProjectManagement.API.Controllers
 
             return Ok(contacts);
         }
+        // GET: api/chat/history
+        // Returns all chat messages involving the currently logged-in user
+        [HttpGet("history")]
+        public async Task<IActionResult> GetAllChatHistory()
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrEmpty(currentUserId))
+            {
+                return Unauthorized();
+            }
+
+            var messages = await _context.ChatMessages
+                .Include(m => m.Sender)
+                .Include(m => m.Receiver)
+                .Where(m =>
+                    m.SenderId == currentUserId ||
+                    m.ReceiverId == currentUserId
+                )
+                .OrderBy(m => m.Timestamp)
+                .Select(m => new
+                {
+                    m.Id,
+
+                    m.SenderId,
+                    SenderName = m.Sender != null
+                        ? (m.Sender.NameAr ?? m.Sender.UserName)
+                        : "Unknown",
+
+                    m.ReceiverId,
+                    ReceiverName = m.Receiver != null
+                        ? (m.Receiver.NameAr ?? m.Receiver.UserName)
+                        : "Unknown",
+
+                    m.Content,
+                    m.Timestamp
+                })
+                .ToListAsync();
+
+            return Ok(messages);
+        }
     }
 }
