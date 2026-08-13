@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using ProjectManagement.API.Data;
 using ProjectManagement.API.Models;
 using System;
@@ -25,10 +26,23 @@ namespace ProjectManagement.API.Hubs
                 return;
             }
 
+            // Resolve receiverId (it could be a username, email, or actual database Guid ID)
+            var receiver = await _context.Users.FirstOrDefaultAsync(u => 
+                u.Id == receiverId || 
+                u.UserName == receiverId || 
+                u.Email == receiverId
+            );
+
+            if (receiver == null)
+            {
+                Console.WriteLine($"[SIGNALR ERROR]: Receiver '{receiverId}' could not be found in the database users list.");
+                return;
+            }
+
             var message = new ChatMessage
             {
                 SenderId = senderId,
-                ReceiverId = receiverId,
+                ReceiverId = receiver.Id,
                 Content = content,
                 Timestamp = DateTime.UtcNow
             };
@@ -38,7 +52,7 @@ namespace ProjectManagement.API.Hubs
             await _context.SaveChangesAsync();
 
             // 2. Send message to receiver
-            await Clients.User(receiverId).SendAsync("ReceiveMessage", senderId, content, message.Timestamp);
+            await Clients.User(receiver.Id).SendAsync("ReceiveMessage", senderId, content, message.Timestamp);
 
             // 3. Send message back to sender (caller) to sync state
             await Clients.Caller.SendAsync("ReceiveMessage", senderId, content, message.Timestamp);

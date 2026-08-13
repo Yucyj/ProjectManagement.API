@@ -29,12 +29,26 @@ namespace ProjectManagement.API.Controllers
                 return Unauthorized();
             }
 
+            // Resolve otherUserId (could be username, email, or database Guid ID)
+            var otherUser = await _context.Users.FirstOrDefaultAsync(u => 
+                u.Id == otherUserId || 
+                u.UserName == otherUserId || 
+                u.Email == otherUserId
+            );
+
+            if (otherUser == null)
+            {
+                return NotFound("User not found");
+            }
+
+            var resolvedOtherUserId = otherUser.Id;
+
             // Retrieve conversation between current user and the specified recipient
             var messages = await _context.ChatMessages
                 .Include(m => m.Sender)
                 .Include(m => m.Receiver)
-                .Where(m => (m.SenderId == currentUserId && m.ReceiverId == otherUserId) ||
-                            (m.SenderId == otherUserId && m.ReceiverId == currentUserId))
+                .Where(m => (m.SenderId == currentUserId && m.ReceiverId == resolvedOtherUserId) ||
+                            (m.SenderId == resolvedOtherUserId && m.ReceiverId == currentUserId))
                 .OrderBy(m => m.Timestamp)
                 .Select(m => new
                 {
