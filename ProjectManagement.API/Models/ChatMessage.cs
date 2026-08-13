@@ -11,13 +11,14 @@ namespace ProjectManagement.API.Models
         [Required]
         public string SenderId { get; set; } = string.Empty;
 
-        [ForeignKey("SenderId")]
+        [ForeignKey(nameof(SenderId))]
         public ApplicationUser? Sender { get; set; }
-        
-        [Required]
-        public string ReceiverId { get; set; } = string.Empty;
 
-        [ForeignKey("ReceiverId")]
+        // Null because this is now a company-wide message.
+        // There is no single receiver.
+        public string? ReceiverId { get; set; }
+
+        [ForeignKey(nameof(ReceiverId))]
         public ApplicationUser? Receiver { get; set; }
 
         [Required]
