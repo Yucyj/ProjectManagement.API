@@ -66,5 +66,50 @@ namespace ProjectManagement.API.Hubs
                 response
             );
         }
+
+
+        public async Task StartTyping()
+        {
+            var senderId = Context.UserIdentifier;
+
+            if (string.IsNullOrEmpty(senderId))
+                return;
+
+            var sender = await _context.Users
+                .FirstOrDefaultAsync(u => u.Id == senderId);
+
+            if (sender == null)
+                return;
+
+            var senderName = sender.NameAr ?? sender.UserName ?? "Unknown";
+
+            await Clients.Others.SendAsync(
+                "UserTyping",
+                senderName,
+                true
+            );
+        }
+
+        public async Task StopTyping()
+        {
+            var senderId = Context.UserIdentifier;
+
+            if (string.IsNullOrEmpty(senderId))
+                return;
+
+            var sender = await _context.Users
+                .FirstOrDefaultAsync(u => u.Id == senderId);
+
+            if (sender == null)
+                return;
+
+            var senderName = sender.NameAr ?? sender.UserName ?? "Unknown";
+
+            await Clients.Others.SendAsync(
+                "UserTyping",
+                senderName,
+                false
+            );
+        }
     }
 }
