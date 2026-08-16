@@ -3,8 +3,6 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ProjectManagement.API.Data;
 using ProjectManagement.API.Models;
-using System;
-using System.Threading.Tasks;
 
 namespace ProjectManagement.API.Hubs
 {
@@ -28,16 +26,14 @@ namespace ProjectManagement.API.Hubs
                 return;
             }
 
-            // Get sender information
-            var sender = await _context.Users.FindAsync(senderId);
+            var sender = await _context.Users
+                .FirstOrDefaultAsync(u => u.Id == senderId);
 
-            var senderName = sender != null
-                ? (sender.NameAr ?? sender.UserName ?? "Unknown")
-                : "Unknown";
+            if (sender == null)
+            {
+                return;
+            }
 
-            var senderPhoto = sender?.ProfilePhoto ?? string.Empty;
-
-            // Company-wide message
             var message = new ChatMessage
             {
                 SenderId = senderId,
@@ -46,21 +42,28 @@ namespace ProjectManagement.API.Hubs
                 Timestamp = DateTime.UtcNow
             };
 
-            // Save message
             _context.ChatMessages.Add(message);
             await _context.SaveChangesAsync();
 
-            // Send one object to everyone connected to the chat
+            var response = new
+            {
+                message.Id,
+                message.SenderId,
+                SenderName = sender.NameAr ?? sender.UserName ?? "Unknown",
+
+                SenderPhoto = string.IsNullOrEmpty(sender.ProfilePhoto)
+                    ? "/images/default-profile.png"
+                    : sender.ProfilePhoto,
+
+                message.ReceiverId,
+                ReceiverName = (string?)null,
+                message.Content,
+                message.Timestamp
+            };
+
             await Clients.All.SendAsync(
                 "ReceiveMessage",
-                new
-                {
-                    senderId = senderId,
-                    senderName = senderName,
-                    senderPhoto = senderPhoto,
-                    content = message.Content,
-                    timestamp = message.Timestamp
-                }
+                response
             );
         }
     }
