@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ProjectManagement.API.Data;
 using ProjectManagement.API.Models;
+using System;
 using System.Threading.Tasks;
 
 namespace ProjectManagement.API.Hubs
@@ -27,18 +28,16 @@ namespace ProjectManagement.API.Hubs
                 return;
             }
 
-            // جلب بيانات المرسل
+            // Get sender information
             var sender = await _context.Users.FindAsync(senderId);
 
-            if (sender == null)
-            {
-                return;
-            }
+            var senderName = sender != null
+                ? (sender.NameAr ?? sender.UserName ?? "Unknown")
+                : "Unknown";
 
-            var senderName = sender.NameAr ?? sender.UserName ?? "Unknown";
-            var senderPhoto = sender.ProfilePhoto ?? "";
+            var senderPhoto = sender?.ProfilePhoto ?? string.Empty;
 
-            // حفظ الرسالة
+            // Company-wide message
             var message = new ChatMessage
             {
                 SenderId = senderId,
@@ -47,17 +46,21 @@ namespace ProjectManagement.API.Hubs
                 Timestamp = DateTime.UtcNow
             };
 
+            // Save message
             _context.ChatMessages.Add(message);
             await _context.SaveChangesAsync();
 
-            // إرسال الرسالة للجميع
+            // Send one object to everyone connected to the chat
             await Clients.All.SendAsync(
                 "ReceiveMessage",
-                senderId,
-                senderName,
-                senderPhoto,
-                content.Trim(),
-                message.Timestamp
+                new
+                {
+                    senderId = senderId,
+                    senderName = senderName,
+                    senderPhoto = senderPhoto,
+                    content = message.Content,
+                    timestamp = message.Timestamp
+                }
             );
         }
     }
