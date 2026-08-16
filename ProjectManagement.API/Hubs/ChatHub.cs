@@ -1,9 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using ProjectManagement.API.Data;
 using ProjectManagement.API.Models;
-using System;
-using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace ProjectManagement.API.Hubs
@@ -28,6 +27,18 @@ namespace ProjectManagement.API.Hubs
                 return;
             }
 
+            // جلب بيانات المرسل
+            var sender = await _context.Users.FindAsync(senderId);
+
+            if (sender == null)
+            {
+                return;
+            }
+
+            var senderName = sender.NameAr ?? sender.UserName ?? "Unknown";
+            var senderPhoto = sender.ProfilePhoto ?? "";
+
+            // حفظ الرسالة
             var message = new ChatMessage
             {
                 SenderId = senderId,
@@ -36,14 +47,15 @@ namespace ProjectManagement.API.Hubs
                 Timestamp = DateTime.UtcNow
             };
 
-            // Save company-wide message
             _context.ChatMessages.Add(message);
             await _context.SaveChangesAsync();
 
-            // Send to EVERYONE connected to the ChatHub
+            // إرسال الرسالة للجميع
             await Clients.All.SendAsync(
                 "ReceiveMessage",
                 senderId,
+                senderName,
+                senderPhoto,
                 content.Trim(),
                 message.Timestamp
             );
