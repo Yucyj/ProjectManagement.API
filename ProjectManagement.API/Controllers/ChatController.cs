@@ -32,21 +32,25 @@ namespace ProjectManagement.API.Controllers
 
             var messages = await _context.ChatMessages
                 .Include(m => m.Sender)
+                .Include(m => m.Reactions)
+                    .ThenInclude(r => r.User)
                 .Where(m => m.ReceiverId == null)
                 .OrderBy(m => m.Timestamp)
                 .Select(m => new
                 {
                     m.Id,
-
                     m.SenderId,
-
                     SenderName = m.Sender != null
                         ? (m.Sender.NameAr ?? m.Sender.UserName)
                         : "Unknown",
-
                     m.Content,
-
-                    m.Timestamp
+                    m.Timestamp,
+                    Reactions = m.Reactions.Select(r => new
+                    {
+                        r.UserId,
+                        UserName = r.User != null ? (r.User.NameAr ?? r.User.UserName) : "Unknown",
+                        r.Emoji
+                    }).ToList()
                 })
                 .ToListAsync();
 

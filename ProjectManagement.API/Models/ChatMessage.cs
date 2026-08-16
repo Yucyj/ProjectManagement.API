@@ -25,5 +25,7 @@ namespace ProjectManagement.API.Models
         public string Content { get; set; } = string.Empty;
 
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+        public virtual ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();
     }
 }
