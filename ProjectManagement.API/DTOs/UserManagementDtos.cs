@@ -77,6 +77,7 @@ namespace ProjectManagement.API.DTOs
         public string? TitleEn { get; set; }
         public DateTime CreatedDate { get; set; }
         public bool IsActive { get; set; }
+        public bool IsOnline { get; set; }
     }
 
     public class UserProfileDto

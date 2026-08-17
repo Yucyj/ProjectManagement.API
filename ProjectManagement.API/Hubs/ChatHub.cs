@@ -3,9 +3,18 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ProjectManagement.API.Data;
 using ProjectManagement.API.Models;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace ProjectManagement.API.Hubs
 {
+    public static class ChatConnectionManager
+    {
+        public static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.HashSet<string>> OnlineUsers 
+            = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.HashSet<string>>();
+    }
+
     [Authorize]
     public class ChatHub : Hub
     {
@@ -14,6 +23,75 @@ namespace ProjectManagement.API.Hubs
         public ChatHub(ApplicationDbContext context)
         {
             _context = context;
+        }
+
+        public override async Task OnConnectedAsync()
+        {
+            var userId = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var connectionId = Context.ConnectionId;
+                
+                ChatConnectionManager.OnlineUsers.AddOrUpdate(
+                    userId,
+                    id => new HashSet<string> { connectionId },
+                    (id, set) =>
+                    {
+                        lock (set)
+                        {
+                            set.Add(connectionId);
+                        }
+                        return set;
+                    }
+                );
+
+                bool isNewlyOnline = false;
+                if (ChatConnectionManager.OnlineUsers.TryGetValue(userId, out var set))
+                {
+                    lock (set)
+                    {
+                        isNewlyOnline = (set.Count == 1);
+                    }
+                }
+
+                if (isNewlyOnline)
+                {
+                    await Clients.Others.SendAsync("UserStatusChanged", userId, true);
+                }
+            }
+
+            await base.OnConnectedAsync();
+        }
+
+        public override async Task OnDisconnectedAsync(Exception? exception)
+        {
+            var userId = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var connectionId = Context.ConnectionId;
+                bool isNewlyOffline = false;
+
+                if (ChatConnectionManager.OnlineUsers.TryGetValue(userId, out var set))
+                {
+                    lock (set)
+                    {
+                        set.Remove(connectionId);
+                        isNewlyOffline = (set.Count == 0);
+                    }
+
+                    if (isNewlyOffline)
+                    {
+                        ChatConnectionManager.OnlineUsers.TryRemove(userId, out _);
+                    }
+                }
+
+                if (isNewlyOffline)
+                {
+                    await Clients.Others.SendAsync("UserStatusChanged", userId, false);
+                }
+            }
+
+            await base.OnDisconnectedAsync(exception);
         }
 
         public async Task SendMessage(string content)

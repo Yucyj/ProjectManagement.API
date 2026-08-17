@@ -356,6 +356,7 @@ namespace ProjectManagement.API.Controllers
             {
                 var roles = await _userManager.GetRolesAsync(u);
                 var roleName = roles.FirstOrDefault() ?? "Member";
+                var isOnline = ProjectManagement.API.Hubs.ChatConnectionManager.OnlineUsers.ContainsKey(u.Id);
 
                 result.Add(new UserListItemDto
                 {
@@ -369,7 +370,8 @@ namespace ProjectManagement.API.Controllers
                     TitleAr = u.TitleAr,
                     TitleEn = u.TitleEn,
                     CreatedDate = u.CreatedDate,
-                    IsActive = u.IsActive
+                    IsActive = u.IsActive,
+                    IsOnline = isOnline
                 });
             }
 
