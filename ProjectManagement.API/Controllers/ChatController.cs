@@ -58,12 +58,41 @@ namespace ProjectManagement.API.Controllers
         }
 
         // GET: api/chat/online-users
-        // Returns the list of currently online user IDs
+        // Returns the list of currently online user IDs with presence metadata
         [HttpGet("online-users")]
-        public IActionResult GetOnlineUsers()
+        public async Task<IActionResult> GetOnlineUsers()
         {
-            var onlineUserIds = ProjectManagement.API.Hubs.ChatConnectionManager.OnlineUsers.Keys.ToList();
-            return Ok(onlineUserIds);
+            var users = await _context.Users.ToListAsync();
+            
+            var result = users.Select(u => {
+                var isOnline = ProjectManagement.API.Hubs.ChatConnectionManager.OnlineUsers.ContainsKey(u.Id);
+                
+                DateTime? lastSeen = null;
+                if (!isOnline && ProjectManagement.API.Hubs.ChatConnectionManager.LastSeenTimes.TryGetValue(u.Id, out var seenTime))
+                {
+                    lastSeen = seenTime;
+                }
+                
+                DateTime? lastActivity = null;
+                if (ProjectManagement.API.Hubs.ChatConnectionManager.LastActivityTimes.TryGetValue(u.Id, out var activityTime))
+                {
+                    lastActivity = activityTime;
+                }
+
+                return new
+                {
+                    userId = u.Id,
+                    userName = u.NameAr ?? u.UserName ?? "Unknown",
+                    profilePhoto = string.IsNullOrEmpty(u.ProfilePhoto)
+                        ? "/images/default-profile.png"
+                        : u.ProfilePhoto,
+                    isOnline = isOnline,
+                    lastSeenUtc = lastSeen,
+                    lastActivityUtc = lastActivity
+                };
+            }).ToList();
+
+            return Ok(result);
         }
     }
 }

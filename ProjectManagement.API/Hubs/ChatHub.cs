@@ -13,6 +13,12 @@ namespace ProjectManagement.API.Hubs
     {
         public static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.HashSet<string>> OnlineUsers 
             = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.HashSet<string>>();
+
+        public static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> LastSeenTimes 
+            = new System.Collections.Concurrent.ConcurrentDictionary<string, DateTime>();
+
+        public static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> LastActivityTimes 
+            = new System.Collections.Concurrent.ConcurrentDictionary<string, DateTime>();
     }
 
     [Authorize]
@@ -44,6 +50,9 @@ namespace ProjectManagement.API.Hubs
                         return set;
                     }
                 );
+
+                ChatConnectionManager.LastActivityTimes[userId] = DateTime.UtcNow;
+                ChatConnectionManager.LastSeenTimes.TryRemove(userId, out _);
 
                 bool isNewlyOnline = false;
                 if (ChatConnectionManager.OnlineUsers.TryGetValue(userId, out var set))
@@ -82,6 +91,7 @@ namespace ProjectManagement.API.Hubs
                     if (isNewlyOffline)
                     {
                         ChatConnectionManager.OnlineUsers.TryRemove(userId, out _);
+                        ChatConnectionManager.LastSeenTimes[userId] = DateTime.UtcNow;
                     }
                 }
 
@@ -103,6 +113,8 @@ namespace ProjectManagement.API.Hubs
             {
                 return;
             }
+
+            ChatConnectionManager.LastActivityTimes[senderId] = DateTime.UtcNow;
 
             var sender = await _context.Users
                 .FirstOrDefaultAsync(u => u.Id == senderId);
@@ -153,6 +165,8 @@ namespace ProjectManagement.API.Hubs
             if (string.IsNullOrEmpty(senderId))
                 return;
 
+            ChatConnectionManager.LastActivityTimes[senderId] = DateTime.UtcNow;
+
             var sender = await _context.Users
                 .FirstOrDefaultAsync(u => u.Id == senderId);
 
@@ -175,6 +189,8 @@ namespace ProjectManagement.API.Hubs
             if (string.IsNullOrEmpty(senderId))
                 return;
 
+            ChatConnectionManager.LastActivityTimes[senderId] = DateTime.UtcNow;
+
             var sender = await _context.Users
                 .FirstOrDefaultAsync(u => u.Id == senderId);
 
@@ -196,6 +212,8 @@ namespace ProjectManagement.API.Hubs
 
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(emoji))
                 return;
+
+            ChatConnectionManager.LastActivityTimes[userId] = DateTime.UtcNow;
 
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Id == userId);
