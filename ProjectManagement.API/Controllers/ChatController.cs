@@ -56,5 +56,14 @@ namespace ProjectManagement.API.Controllers
 
             return Ok(messages);
         }
+
+        // GET: api/chat/online-users
+        // Returns the list of currently online user IDs
+        [HttpGet("online-users")]
+        public IActionResult GetOnlineUsers()
+        {
+            var onlineUserIds = ProjectManagement.API.Hubs.ChatConnectionManager.OnlineUsers.Keys.ToList();
+            return Ok(onlineUserIds);
+        }
     }
 }
