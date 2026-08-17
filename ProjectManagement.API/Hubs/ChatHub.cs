@@ -104,7 +104,7 @@ namespace ProjectManagement.API.Hubs
             await base.OnDisconnectedAsync(exception);
         }
 
-        public async Task SendMessage(string content)
+        public async Task SendMessage(string content, int? replyToMessageId)
         {
             var senderId = Context.UserIdentifier;
 
@@ -129,6 +129,7 @@ namespace ProjectManagement.API.Hubs
                 SenderId = senderId,
                 ReceiverId = null,
                 Content = content.Trim(),
+                ReplyToMessageId = replyToMessageId,
                 Timestamp = DateTime.UtcNow
             };
 

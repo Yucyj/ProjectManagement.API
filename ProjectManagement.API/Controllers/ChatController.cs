@@ -34,21 +34,48 @@ namespace ProjectManagement.API.Controllers
                 .Include(m => m.Sender)
                 .Include(m => m.Reactions)
                     .ThenInclude(r => r.User)
+
+                // جلب الرسالة التي تم الرد عليها + صاحبها
+                .Include(m => m.ReplyToMessage)
+                    .ThenInclude(m => m.Sender)
+
                 .Where(m => m.ReceiverId == null)
                 .OrderBy(m => m.Timestamp)
                 .Select(m => new
                 {
                     m.Id,
                     m.SenderId,
+
                     SenderName = m.Sender != null
                         ? (m.Sender.NameAr ?? m.Sender.UserName)
                         : "Unknown",
+
                     m.Content,
                     m.Timestamp,
+
+                    // الرسالة التي يرد عليها المستخدم
+                    ReplyToMessage = m.ReplyToMessage == null
+                        ? null
+                        : new
+                        {
+                            Id = m.ReplyToMessage.Id,
+
+                            SenderName = m.ReplyToMessage.Sender != null
+                                ? (m.ReplyToMessage.Sender.NameAr ??
+                                   m.ReplyToMessage.Sender.UserName)
+                                : "Unknown",
+
+                            Content = m.ReplyToMessage.Content
+                        },
+
                     Reactions = m.Reactions.Select(r => new
                     {
                         r.UserId,
-                        UserName = r.User != null ? (r.User.NameAr ?? r.User.UserName) : "Unknown",
+
+                        UserName = r.User != null
+                            ? (r.User.NameAr ?? r.User.UserName)
+                            : "Unknown",
+
                         r.Emoji
                     }).ToList()
                 })

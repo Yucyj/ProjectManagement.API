@@ -27,5 +27,9 @@ namespace ProjectManagement.API.Models
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
         public virtual ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();
+        public int? ReplyToMessageId { get; set; }
+
+        [ForeignKey(nameof(ReplyToMessageId))]
+        public ChatMessage? ReplyToMessage { get; set; }
     }
 }
