@@ -43,6 +43,7 @@ namespace ProjectManagement.API.Controllers
                 .OrderBy(m => m.Timestamp)
                 .Select(m => new
                 {
+                    // المعلومات الموجودة سابقًا
                     m.Id,
                     m.SenderId,
 
@@ -68,6 +69,7 @@ namespace ProjectManagement.API.Controllers
                             Content = m.ReplyToMessage.Content
                         },
 
+                    // الـ reactions
                     Reactions = m.Reactions.Select(r => new
                     {
                         r.UserId,
@@ -77,13 +79,22 @@ namespace ProjectManagement.API.Controllers
                             : "Unknown",
 
                         r.Emoji
-                    }).ToList()
+                    }).ToList(),
+
+                    // الجديد فقط
+                    ReadStates = _context.MessageReadStates
+                        .Where(r => r.MessageId == m.Id)
+                        .Select(r => new
+                        {
+                            r.UserId,
+                            r.ReadAt
+                        })
+                        .ToList()
                 })
                 .ToListAsync();
 
             return Ok(messages);
         }
-
         // GET: api/chat/online-users
         // Returns the list of currently online user IDs with presence metadata
         [HttpGet("online-users")]

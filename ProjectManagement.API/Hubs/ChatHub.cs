@@ -269,5 +269,49 @@ namespace ProjectManagement.API.Hubs
                 isRemoved = isRemoved
             });
         }
+        public async Task MarkMessageAsRead(int messageId)
+        {
+            var userId = Context.UserIdentifier;
+
+            if (string.IsNullOrEmpty(userId))
+                return;
+
+            var messageExists = await _context.ChatMessages
+                .AnyAsync(m => m.Id == messageId);
+
+            if (!messageExists)
+                return;
+
+            var alreadyRead = await _context.MessageReadStates
+                .AnyAsync(r =>
+                    r.MessageId == messageId &&
+                    r.UserId == userId);
+
+            if (alreadyRead)
+                return;
+
+            var readAt = DateTime.UtcNow;
+
+            var readState = new MessageReadState
+            {
+                MessageId = messageId,
+                UserId = userId,
+                ReadAt = readAt
+            };
+
+            _context.MessageReadStates.Add(readState);
+
+            await _context.SaveChangesAsync();
+
+            await Clients.All.SendAsync(
+                "MessageRead",
+                new
+                {
+                    messageId = messageId,
+                    userId = userId,
+                    readAt = readAt
+                }
+            );
+        }
     }
 }

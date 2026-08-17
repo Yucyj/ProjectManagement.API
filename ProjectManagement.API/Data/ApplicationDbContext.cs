@@ -26,6 +26,7 @@ namespace ProjectManagement.API.Data
         public DbSet<Category> Categories { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<MessageReaction> MessageReactions { get; set; }
+        public DbSet<MessageReadState> MessageReadStates { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -158,6 +159,17 @@ namespace ProjectManagement.API.Data
                 .HasOne(m => m.ReplyToMessage)
                 .WithMany()
                 .HasForeignKey(m => m.ReplyToMessageId)
+                .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<MessageReadState>()
+                .HasOne(r => r.Message)
+                .WithMany()
+                .HasForeignKey(r => r.MessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<MessageReadState>()
+                .HasOne(r => r.User)
+                .WithMany()
+                .HasForeignKey(r => r.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
         }
     }
