@@ -26,10 +26,15 @@ namespace ProjectManagement.API.Models
 
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
-        public virtual ICollection<MessageReaction> Reactions { get; set; } = new List<MessageReaction>();
+        public virtual ICollection<MessageReaction> Reactions { get; set; }
+            = new List<MessageReaction>();
+
         public int? ReplyToMessageId { get; set; }
 
         [ForeignKey(nameof(ReplyToMessageId))]
         public ChatMessage? ReplyToMessage { get; set; }
+        public string? FileUrl { get; set; }
+        public string? FileName { get; set; }
+        public string? FileType { get; set; }
     }
 }

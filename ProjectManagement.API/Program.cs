@@ -83,13 +83,11 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
-
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAngularApp", policy =>
     {
-
-        policy.SetIsOriginAllowed(origin => true) // يسمح بطلبات Vercel وأي دومين آخر
+        policy.SetIsOriginAllowed(origin => true)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -128,17 +126,17 @@ app.MapGet("/", context =>
 
 app.UseSwagger();
 app.UseSwaggerUI();
-
 app.UseHttpsRedirection();
 
 // Use CORS Policy before Authentication/Authorization
 app.UseCors("AllowAngularApp");
 
+// Serve uploaded files directly before auth challenge
+app.UseStaticFiles();
+
 // الترتيب مهم
 app.UseAuthentication();
 app.UseAuthorization();
-
-app.UseStaticFiles();
 
 app.MapControllers();
 app.MapHub<ChatHub>("/chathub");

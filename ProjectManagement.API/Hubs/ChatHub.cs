@@ -11,13 +11,13 @@ namespace ProjectManagement.API.Hubs
 {
     public static class ChatConnectionManager
     {
-        public static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.HashSet<string>> OnlineUsers 
+        public static readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.HashSet<string>> OnlineUsers
             = new System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Generic.HashSet<string>>();
 
-        public static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> LastSeenTimes 
+        public static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> LastSeenTimes
             = new System.Collections.Concurrent.ConcurrentDictionary<string, DateTime>();
 
-        public static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> LastActivityTimes 
+        public static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> LastActivityTimes
             = new System.Collections.Concurrent.ConcurrentDictionary<string, DateTime>();
     }
 
@@ -37,7 +37,7 @@ namespace ProjectManagement.API.Hubs
             if (!string.IsNullOrEmpty(userId))
             {
                 var connectionId = Context.ConnectionId;
-                
+
                 ChatConnectionManager.OnlineUsers.AddOrUpdate(
                     userId,
                     id => new HashSet<string> { connectionId },
@@ -104,12 +104,17 @@ namespace ProjectManagement.API.Hubs
             await base.OnDisconnectedAsync(exception);
         }
 
-        public async Task SendMessage(string content, int? replyToMessageId)
+        public async Task SendMessage(
+            string content,
+            int? replyToMessageId = null,
+            string? fileUrl = null,
+            string? fileName = null,
+            string? fileType = null)
         {
             var senderId = Context.UserIdentifier;
 
             if (string.IsNullOrEmpty(senderId) ||
-                string.IsNullOrWhiteSpace(content))
+                (string.IsNullOrWhiteSpace(content) && string.IsNullOrEmpty(fileUrl)))
             {
                 return;
             }
@@ -128,8 +133,11 @@ namespace ProjectManagement.API.Hubs
             {
                 SenderId = senderId,
                 ReceiverId = null,
-                Content = content.Trim(),
+                Content = (content ?? string.Empty).Trim(),
                 ReplyToMessageId = replyToMessageId,
+                FileUrl = fileUrl,
+                FileName = fileName,
+                FileType = fileType,
                 Timestamp = DateTime.UtcNow
             };
 
@@ -141,14 +149,16 @@ namespace ProjectManagement.API.Hubs
                 message.Id,
                 message.SenderId,
                 SenderName = sender.NameAr ?? sender.UserName ?? "Unknown",
-
                 SenderPhoto = string.IsNullOrEmpty(sender.ProfilePhoto)
                     ? "/images/default-profile.png"
                     : sender.ProfilePhoto,
-
                 message.ReceiverId,
                 ReceiverName = (string?)null,
                 message.Content,
+                message.FileUrl,
+                message.FileName,
+                message.FileType,
+                message.ReplyToMessageId,
                 message.Timestamp
             };
 
@@ -157,7 +167,6 @@ namespace ProjectManagement.API.Hubs
                 response
             );
         }
-
 
         public async Task StartTyping()
         {
@@ -269,6 +278,7 @@ namespace ProjectManagement.API.Hubs
                 isRemoved = isRemoved
             });
         }
+
         public async Task MarkMessageAsRead(int messageId)
         {
             var userId = Context.UserIdentifier;

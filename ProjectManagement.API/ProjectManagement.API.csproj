@@ -25,4 +25,8 @@
 
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="wwwroot\uploads\chat\" />
+	</ItemGroup>
+
 </Project>
