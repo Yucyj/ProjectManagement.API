@@ -36,5 +36,10 @@ namespace ProjectManagement.API.Models
         public string? FileUrl { get; set; }
         public string? FileName { get; set; }
         public string? FileType { get; set; }
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
+
+        public bool IsEdited { get; set; } = false;
+        public DateTime? EditedAt { get; set; }
     }
 }

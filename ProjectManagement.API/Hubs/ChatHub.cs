@@ -323,5 +323,54 @@ namespace ProjectManagement.API.Hubs
                 }
             );
         }
+        public async Task EditMessage(int messageId, string newContent)
+        {
+            var userId = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrWhiteSpace(newContent))
+                return;
+
+            var message = await _context.ChatMessages.FirstOrDefaultAsync(m => m.Id == messageId);
+            if (message == null || message.SenderId != userId || message.IsDeleted)
+                return;
+
+            message.Content = newContent.Trim();
+            message.IsEdited = true;
+            message.EditedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            await Clients.All.SendAsync("MessageEdited", new
+            {
+                messageId = message.Id,
+                newContent = message.Content,
+                isEdited = message.IsEdited,
+                editedAt = message.EditedAt
+            });
+        }
+
+        public async Task DeleteMessage(int messageId)
+        {
+            var userId = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(userId))
+                return;
+
+            var message = await _context.ChatMessages.FirstOrDefaultAsync(m => m.Id == messageId);
+            if (message == null || message.SenderId != userId || message.IsDeleted)
+                return;
+
+            message.IsDeleted = true;
+            message.DeletedAt = DateTime.UtcNow;
+            message.Content = " „ Õ–› Â–Â «·—”«·…";
+            message.FileUrl = null;
+            message.FileName = null;
+            message.FileType = null;
+
+            await _context.SaveChangesAsync();
+
+            await Clients.All.SendAsync("MessageDeleted", new
+            {
+                messageId = message.Id
+            });
+        }
     }
 }

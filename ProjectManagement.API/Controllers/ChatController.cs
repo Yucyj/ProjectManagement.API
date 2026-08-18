@@ -101,6 +101,9 @@ namespace ProjectManagement.API.Controllers
                     m.FileName,
                     m.FileType,
                     m.Timestamp,
+                    m.IsEdited,
+m.EditedAt,
+m.IsDeleted,
 
                     ReplyToMessage = m.ReplyToMessage == null
                         ? null
