@@ -615,11 +615,69 @@ namespace ProjectManagement.API.Controllers
             {
                 return NotFound("المستخدم غير موجود!");
             }
+
+            // 1. التحقق من العلاقات التي تمنع الحذف لحماية نزاهة البيانات
+            var hasPortfolios = await _context.Portfolios.AnyAsync(p => p.OwnerId == userId);
+            if (hasPortfolios)
+            {
+                return BadRequest("لا يمكن حذف المستخدم لأنه مالك لمحفظة واحدة أو أكثر. يرجى نقل ملكية المحفظة أولاً.");
+            }
+
+            var hasPrograms = await _context.Programs.AnyAsync(p => p.ManagerId == userId);
+            if (hasPrograms)
+            {
+                return BadRequest("لا يمكن حذف المستخدم لأنه مدير لبرنامج واحد أو أكثر. يرجى تعيين مدير آخر للبرنامج أولاً.");
+            }
+
+            var hasProjects = await _context.Projects.AnyAsync(p => p.ManagerId == userId);
+            if (hasProjects)
+            {
+                return BadRequest("لا يمكن حذف المستخدم لأنه مدير لمشروع واحد أو أكثر. يرجى تعيين مدير آخر للمشروع أولاً.");
+            }
+
+            var hasTasks = await _context.Tasks.AnyAsync(t => t.AssigneeId == userId);
+            if (hasTasks)
+            {
+                return BadRequest("لا يمكن حذف المستخدم لأنه معين على مهمة واحدة أو أكثر. يرجى إزالة التعيين أو نقله لمستخدم آخر أولاً.");
+            }
+
+            var hasChangeRequests = await _context.ChangeRequests.AnyAsync(cr => cr.RequestedById == userId);
+            if (hasChangeRequests)
+            {
+                return BadRequest("لا يمكن حذف المستخدم لأنه قام بطلب طلبات تغيير (Change Requests) نشطة. يرجى مراجعتها أولاً.");
+            }
+
+            // 2. تنظيف التبعيات الفرعية لمنع تعارض المفاتيح الأجنبية
+            var comments = await _context.ChangeRequestComments.Where(c => c.UserId == userId).ToListAsync();
+            _context.ChangeRequestComments.RemoveRange(comments);
+
+            var reactions = await _context.MessageReactions.Where(r => r.UserId == userId || r.Message.SenderId == userId).ToListAsync();
+            _context.MessageReactions.RemoveRange(reactions);
+
+            var readStates = await _context.MessageReadStates.Where(r => r.UserId == userId || r.Message.SenderId == userId).ToListAsync();
+            _context.MessageReadStates.RemoveRange(readStates);
+
+            var messages = await _context.ChatMessages.Where(m => m.SenderId == userId).ToListAsync();
+            _context.ChatMessages.RemoveRange(messages);
+
+            var memberships = await _context.ProjectMembers.Where(m => m.UserId == userId).ToListAsync();
+            _context.ProjectMembers.RemoveRange(memberships);
+
+            var approvedCRs = await _context.ChangeRequests.Where(cr => cr.ApprovedById == userId).ToListAsync();
+            foreach (var cr in approvedCRs)
+            {
+                cr.ApprovedById = null;
+            }
+
+            await _context.SaveChangesAsync();
+
+            // 3. حذف حساب المستخدم نفسه
             var result = await _userManager.DeleteAsync(user);
             if (!result.Succeeded)
             {
                 return BadRequest(result.Errors);
             }
+
             return Ok(new { Message = "تم حذف المستخدم بنجاح!" });
         }
 
